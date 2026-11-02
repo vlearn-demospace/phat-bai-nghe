@@ -9,6 +9,7 @@ const EXAMS_DIR = path.join(DATA, 'exams');
 const EXAMS_FILE = path.join(DATA, 'exams.json');
 const USERS_FILE = path.join(DATA, 'users.json');
 const SCHOOL_FILE = path.join(DATA, 'school.json');
+const KTV_FILE = path.join(DATA, 'ktvs.json');
 const LOG_FILE = path.join(__dirname, 'log.txt');
 fs.mkdirSync(EXAMS_DIR, { recursive: true });
 
@@ -18,6 +19,7 @@ function writeJson(f, obj) { const t = f + '.tmp'; fs.writeFileSync(t, JSON.stri
 let exams = readJson(EXAMS_FILE, []);     // [{ id, title, teacherId, teacherName, mime, size, sha256, dur, wrappedKey, keyId, uploadedAt, t0, rooms }]
 let users = readJson(USERS_FILE, []);     // [{ id, name, username, role, salt, hash, createdAt }]
 let school = readJson(SCHOOL_FILE, null); // { publicKey, keyId, createdAt } – chỉ có khoá công khai
+let ktvs = readJson(KTV_FILE, []);        // [{ id, name }] – kỹ thuật viên không có tài khoản, chỉ để phân phòng
 let masterKey = null;                     // khoá riêng của trường CHỈ nằm trong RAM, không ghi ra đĩa
 const live = {};                          // trạng thái theo bài, chỉ trong RAM: { force, playAt, rooms }
 const sessions = new Map();               // mã phiên -> { userId, exp }
@@ -25,7 +27,25 @@ const tunnel = { proc: null, status: 'off', url: '', msg: '' };
 const fails = {};                         // chống dò mã: đếm lần nhập sai theo IP
 const SESSION_MS = 30 * 86400000;
 
+// Sơ đồ phòng học lý thuyết năm học 2026 – 2027, áp dụng từ 05/9/2026. null = ô cầu thang giữa dãy.
+const SCHOOL_MAP = [
+  { title: 'KHU 20 PHÒNG (DÃY TRƯỚC SẢNH)', floors: [
+    { n: 4, wait: 'PHÒNG ĐỢI', rooms: [['409', '12 SINH'], ['408', '12 HOÁ'], null, ['407', '12 LÝ'], ['406', '12 TOÁN 2'], ['405', '12 TOÁN 1']] },
+    { n: 3, wait: 'PHÒNG ĐỢI', rooms: [['309', '12 TIN'], ['308', '12 VĂN'], null, ['307', '12 ANH 1'], ['306', '12 ANH 2'], ['305', '11 TOÁN 1']] },
+    { n: 2, wait: 'PHÒNG ĐỢI', rooms: [['209', '11 TIN'], ['208', '11 SINH'], null, ['207', '11 HOÁ'], ['206', '11 LÝ'], ['205', '11 TOÁN 2']] },
+    { n: 1, wait: 'PHÒNG ĐỢI', rooms: [['109', '11 VĂN'], ['108', '11 ANH 1'], null, ['107', '11 ANH 2'], ['106', 'DỰ PHÒNG'], ['105', 'DỰ PHÒNG']] },
+  ] },
+  { title: 'KHU 16 PHÒNG (DÃY PHÍA SAU)', floors: [
+    { n: 4, wait: 'PHÒNG ĐỢI', rooms: [['404', 'PHÒNG MÁY'], ['403', 'PHÒNG MÁY'], ['402', 'PHÒNG MÁY'], ['401', 'PHÒNG STEM']] },
+    { n: 3, wait: 'PHÒNG ĐỢI', rooms: [['304', '10 HOÁ'], ['303', '10 LÝ'], ['302', '10 TOÁN 2'], ['301', '10 TOÁN 1']] },
+    { n: 2, wait: 'PHÒNG ĐỢI', rooms: [['204', '10 SINH'], ['203', '10 TIN'], ['202', '10 VĂN'], ['201', '10 SỬ']] },
+    { n: 1, wait: 'PHÒNG THIẾT BỊ GDQP', rooms: [['104', 'DỰ PHÒNG'], ['103', 'DỰ PHÒNG'], ['102', '10 ANH'], ['101', '10 ĐỊA']] },
+  ] },
+];
+const ROOM_IDS = new Set(SCHOOL_MAP.flatMap(k => k.floors.flatMap(f => f.rooms.filter(Boolean).map(r => 'P' + r[0]))));
+
 const saveExams = () => writeJson(EXAMS_FILE, exams);
+const saveKtvs = () => writeJson(KTV_FILE, ktvs);
 const saveUsers = () => writeJson(USERS_FILE, users);
 const encFile = id => path.join(EXAMS_DIR, id + '.enc');
 const findExam = id => exams.find(e => e.id === id);
@@ -168,15 +188,26 @@ function deleteExam(e) {
   exams = exams.filter(x => x !== e); delete live[e.id]; saveExams();
 }
 
-// Admin xếp lịch: giữ mã các phòng đã có để phiếu đã in vẫn dùng được
-function schedule(e, t0, n) {
-  const old = e.rooms || {};
+// Admin xếp lịch và phân phòng: giữ mã các phòng đã có để phiếu đã in vẫn dùng được
+function schedule(e, t0, assign) {
+  const old = e.rooms || {}, rooms = Object.keys(assign).sort();
   e.rooms = {};
-  for (let i = 1; i <= n; i++) { const r = 'P' + String(i).padStart(2, '0'); if (old[r]) e.rooms[r] = old[r]; }
-  for (let i = 1; i <= n; i++) { const r = 'P' + String(i).padStart(2, '0'); if (!e.rooms[r]) e.rooms[r] = newCode(); }
-  e.rooms = Object.fromEntries(Object.entries(e.rooms).sort(([a], [b]) => a.localeCompare(b)));
+  for (const r of rooms) if (old[r]) e.rooms[r] = old[r];
+  for (const r of rooms) if (!e.rooms[r]) e.rooms[r] = newCode();
+  e.rooms = Object.fromEntries(rooms.map(r => [r, e.rooms[r]]));
+  e.ktv = Object.fromEntries(rooms.filter(r => assign[r]).map(r => [r, assign[r]]));
   e.t0 = t0; saveExams();
   liveOf(e);
+}
+// Một phòng không thể phát hai bài trùng giờ. Bài chưa rõ độ dài thì tính 60 phút.
+const examSpan = e => (e.dur || 3600) * 1000;
+function roomClash(e, t0, rooms) {
+  for (const o of exams) {
+    if (o === e || !o.t0 || !(t0 < o.t0 + examSpan(o) && o.t0 < t0 + examSpan(e))) continue;
+    const r = rooms.find(x => o.rooms && o.rooms[x]);
+    if (r) return `P.${r.slice(1)} đang dùng cho bài "${o.title}" trùng giờ`;
+  }
+  return null;
 }
 
 // ---------- Khoá trường ----------
@@ -254,13 +285,13 @@ process.on('SIGINT', () => process.exit());
 function examForAdmin(e) {
   const l = liveOf(e);
   return { id: e.id, title: e.title, teacherName: e.teacherName, teacherId: e.teacherId, mime: e.mime, size: e.size, dur: e.dur, uploadedAt: e.uploadedAt,
-    t0: e.t0, codes: e.rooms || {}, released: released(e), force: l.force, playAt: l.playAt, rooms: l.rooms,
+    t0: e.t0, codes: e.rooms || {}, ktv: e.ktv || {}, released: released(e), force: l.force, playAt: l.playAt, rooms: l.rooms,
     oldKey: e.keyId !== school?.keyId, bad: badExams.includes(e.id) };
 }
 function adminStatus(req, user) {
   const local = isLocal(req);
   return { now: Date.now(), local, user: user ? { name: user.name } : { name: 'Máy chủ' }, hasSchoolKey: !!school, schoolKeyAt: school?.createdAt || null,
-    hasKey: !!masterKey, exams: exams.map(examForAdmin), users: users.map(publicUser), tunnel: { status: tunnel.status, url: tunnel.url, msg: tunnel.msg },
+    hasKey: !!masterKey, exams: exams.map(examForAdmin), users: users.map(publicUser), ktvs, map: SCHOOL_MAP, tunnel: { status: tunnel.status, url: tunnel.url, msg: tunnel.msg },
     short: link ? { url: link.url, ok: linkState.ok, msg: linkState.msg } : null };
 }
 
@@ -284,7 +315,8 @@ http.createServer(async (req, res) => {
       const f = findRoom(q.code);
       if (!f) { fail(ip); log(`Đăng nhập SAI từ ${ip}`); return send(res, 403, { error: 'Sai mã truy cập' }); }
       log(`${f.exam.title} / ${f.room} đăng nhập từ ${ip}`);
-      return send(res, 200, { room: f.room, title: f.exam.title, mime: f.exam.mime, sha256: f.exam.sha256, size: f.exam.size, t0: f.exam.t0 });
+      const ktv = ktvs.find(k => k.id === (f.exam.ktv || {})[f.room]);
+      return send(res, 200, { room: f.room, title: f.exam.title, mime: f.exam.mime, sha256: f.exam.sha256, size: f.exam.size, t0: f.exam.t0, ktv: ktv ? ktv.name : '' });
     }
     if (p === '/api/audio') {
       const f = findRoom(q.code);
@@ -407,6 +439,22 @@ http.createServer(async (req, res) => {
         return send(res, 200, {});
       }
 
+      if (a === 'ktv-create') {
+        const name = String(b.name || '').trim().slice(0, 80);
+        if (!name) return send(res, 400, { error: 'Chưa nhập họ tên' });
+        if (ktvs.some(k => k.name.toLowerCase() === name.toLowerCase())) return send(res, 400, { error: 'Tên này đã có trong danh sách' });
+        const k = { id: crypto.randomBytes(6).toString('hex'), name };
+        ktvs.push(k); saveKtvs(); log(`${who}: thêm kỹ thuật viên ${name}`);
+        return send(res, 200, k);
+      }
+      if (a === 'ktv-delete') {
+        const k = ktvs.find(x => x.id === b.id);
+        if (!k) return send(res, 404, { error: 'Không tìm thấy kỹ thuật viên' });
+        ktvs = ktvs.filter(x => x !== k); saveKtvs();
+        for (const e of exams) for (const [r, id] of Object.entries(e.ktv || {})) if (id === k.id) delete e.ktv[r];
+        saveExams(); log(`${who}: xoá kỹ thuật viên ${k.name} (các phòng của người này thành chưa phân)`);
+        return send(res, 200, {});
+      }
       if (a === 'link-set') {
         if (!local) return send(res, 403, { error: 'Thao tác này chỉ làm được trên máy chủ' });
         const url = String(b.url || '').trim().replace(/\/+$/, ''), secret = String(b.secret || '').trim();
@@ -439,11 +487,15 @@ http.createServer(async (req, res) => {
       const e = findExam(b.id);
       if (!e) return send(res, 404, { error: 'Không tìm thấy bài' });
       if (a === 'schedule') {
-        const t0 = Date.parse(b.t0), n = parseInt(b.n);
+        const t0 = Date.parse(b.t0), assign = b.assign && typeof b.assign === 'object' ? b.assign : {}, rooms = Object.keys(assign);
         if (isNaN(t0)) return send(res, 400, { error: 'Giờ thi không hợp lệ' });
-        if (!(n >= 1 && n <= 200)) return send(res, 400, { error: 'Số phòng từ 1 đến 200' });
+        if (!rooms.length) return send(res, 400, { error: 'Chưa chọn phòng nào trên sơ đồ' });
+        if (rooms.some(r => !ROOM_IDS.has(r))) return send(res, 400, { error: 'Có phòng không nằm trên sơ đồ' });
+        if (rooms.some(r => assign[r] && !ktvs.some(k => k.id === assign[r]))) return send(res, 400, { error: 'Có kỹ thuật viên không còn trong danh sách' });
         if (liveOf(e).playAt) return send(res, 400, { error: 'Bài đã có lệnh phát – không đổi lịch được' });
-        schedule(e, t0, n); log(`${who}: xếp lịch "${e.title}" lúc ${new Date(t0).toLocaleString('vi-VN')}, ${n} phòng`);
+        const clash = roomClash(e, t0, rooms);
+        if (clash) return send(res, 400, { error: clash });
+        schedule(e, t0, assign); log(`${who}: xếp lịch "${e.title}" lúc ${new Date(t0).toLocaleString('vi-VN')}, ${rooms.length} phòng`);
         return send(res, 200, {});
       }
       if (a === 'release') { liveOf(e).force = true; log(`${who}: MỞ KHOÁ KHẨN CẤP "${e.title}"`); return send(res, 200, {}); }

@@ -16,7 +16,7 @@ ADMIN – CHUẨN BỊ MỘT LẦN
   Bấm đúp MO-CHUONG-TRINH.bat → trình duyệt tự mở trang admin.
   Giữ cửa sổ đen mở suốt buổi thi (đóng = tắt chương trình).
   1. Bài nghe       – bấm "Tạo khoá trường". Máy tự tải về FILE KHOÁ: chép vào USB rồi xoá khỏi máy.
-  2. Giáo viên      – tạo tài khoản, gửi tên đăng nhập và mật khẩu (mật khẩu chỉ hiện một lần).
+  2. Giáo viên & KTV – tạo tài khoản giáo viên (mật khẩu chỉ hiện một lần); thêm tên các kỹ thuật viên.
   3. Truy cập từ xa – bấm "Bật truy cập từ xa", gửi địa chỉ /g cho giáo viên.
 
 GIÁO VIÊN
@@ -24,7 +24,7 @@ GIÁO VIÊN
   Bài đã xếp lịch thì nhờ admin xoá nếu cần thay.
 
 ADMIN – MỖI KỲ THI
-  1. Bài nghe – xem ai đã đăng; bấm "Xếp lịch" chọn ngày giờ và số phòng; bấm "Mã phòng" để in phiếu.
+  1. Bài nghe – xem ai đã đăng; bấm "Xếp lịch" chọn ngày giờ; chọn kỹ thuật viên rồi bấm các ô phòng trên sơ đồ; bấm "Mã phòng" để in phiếu.
   2. Ngày thi – kéo thả file khoá từ USB vào (một lần cho mọi bài); theo dõi các phòng của từng bài.
   3. Đến giờ: bấm "Phát đồng loạt bài này", hoặc tích nhiều bài rồi bấm "Phát các bài đã chọn".
 

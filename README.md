@@ -5,7 +5,7 @@ Hệ thống phát bài thi nghe đồng loạt cho nhiều phòng thi, nhiều 
 ## Ba vai
 | Vai | Địa chỉ | Việc làm |
 |---|---|---|
-| Admin | `/a` | Tạo tài khoản, xem ai đã đăng bài, xếp giờ và số phòng, in phiếu mã, nạp khoá, phát đồng loạt |
+| Admin | `/a` | Tạo tài khoản, xem ai đã đăng bài, xếp giờ, phân phòng cho kỹ thuật viên trên sơ đồ, in phiếu mã, nạp khoá, phát đồng loạt |
 | Giáo viên | `/g` | Đăng nhập, đăng bài nghe của mình, xoá bài chưa xếp lịch |
 | Kỹ thuật viên | `/` hoặc `/K7M2` | Không cần tài khoản: nhập mã 4 ký tự trên phiếu hoặc mở link in sẵn |
 
@@ -31,12 +31,12 @@ Bấm đúp `MO-CHUONG-TRINH.bat` → trình duyệt mở trang admin (`http://l
 
 Chuẩn bị (một lần):
 1. **Bài nghe** – bấm *Tạo khoá trường*, chép file khoá vào USB.
-2. **Giáo viên** – tạo tài khoản cho từng giáo viên, gửi tên đăng nhập và mật khẩu.
+2. **Giáo viên & KTV** – tạo tài khoản cho từng giáo viên, gửi tên đăng nhập và mật khẩu; thêm tên các kỹ thuật viên.
 3. **Truy cập từ xa** – bật đường hầm HTTPS, gửi địa chỉ `/g` cho giáo viên.
 
 Mỗi kỳ thi:
 1. Giáo viên đăng bài ở `/g`.
-2. Admin vào **Bài nghe**, xếp giờ và số phòng cho từng bài, in phiếu mã cho kỹ thuật viên.
+2. Admin vào **Bài nghe**, xếp giờ cho từng bài, chọn một kỹ thuật viên rồi bấm các ô phòng trên sơ đồ, in phiếu mã (xếp theo kỹ thuật viên).
 3. Sáng ngày thi, vào **Ngày thi**, nạp file khoá từ USB (một lần cho mọi bài).
 4. Đến giờ, phát từng bài hoặc tích nhiều bài rồi phát cùng lúc.
 

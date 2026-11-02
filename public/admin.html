@@ -40,6 +40,21 @@ table{width:100%;border-collapse:collapse;font-size:15px}td,th{padding:9px 8px;b
 .hidden{display:none!important}
 .check{display:flex;gap:10px;align-items:flex-start;margin:8px 0;font-weight:400}.check input{margin-top:4px;width:18px;height:18px}
 .scroll{overflow-x:auto}
+.map{table-layout:fixed;min-width:860px;border:1px solid #475569;margin:6px 0 16px}
+.map td{border:1px solid #475569;padding:0;text-align:center;vertical-align:middle;font-size:13px;line-height:1.25;height:64px}
+.map .fix{padding:4px;font-weight:600;color:#475569}
+.map .wc{font-style:italic;font-weight:600;font-size:12px}
+.map .y{background:#fef08a;color:#1d4ed8;font-weight:700}
+.cell{display:block;width:100%;height:100%;min-height:64px;margin:0;padding:4px;border:0;border-radius:0;background:#fff;color:var(--ink);font-weight:400;font-size:13px;line-height:1.25}
+.cell b{display:block;font-size:14px}.cell i{display:block;font-style:normal;font-weight:700;font-size:12px;margin-top:2px}
+.cell:hover:not(:disabled){outline:2px solid var(--blue);outline-offset:-2px}
+.cell:focus-visible{outline:3px solid var(--blue);outline-offset:-3px}
+.cell.none{background:#cbd5e1}
+.cell:disabled{background:#e2e8f0;color:#64748b;opacity:1}
+.brushes{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.brush{margin:0;padding:8px 14px;border:2px solid transparent;color:var(--ink);font-weight:600}
+.brush.on{border-color:var(--ink)}
+.k0{background:#bfdbfe}.k1{background:#bbf7d0}.k2{background:#fed7aa}.k3{background:#e9d5ff}.k4{background:#fecdd3}.k5{background:#a5f3fc}.k6{background:#d9f99d}.k7{background:#fde68a}
 </style></head><body>
 
 <header>
@@ -63,7 +78,7 @@ table{width:100%;border-collapse:collapse;font-size:15px}td,th{padding:9px 8px;b
 <nav id="tabs" class="hidden">
   <button data-t="t1">Bài nghe</button>
   <button data-t="t2">Ngày thi</button>
-  <button data-t="t3">Giáo viên</button>
+  <button data-t="t3">Giáo viên &amp; KTV</button>
   <button data-t="t4">Truy cập từ xa</button>
 </nav>
 
@@ -87,7 +102,7 @@ table{width:100%;border-collapse:collapse;font-size:15px}td,th{padding:9px 8px;b
   </div>
   <div class="card">
     <h2>Các bài đã đăng</h2>
-    <p class="mute">Ai đăng bài nào, khi nào. Xếp giờ thi và số phòng cho từng bài, rồi in phiếu mã cho kỹ thuật viên.</p>
+    <p class="mute">Ai đăng bài nào, khi nào. Xếp giờ thi, phân phòng trên sơ đồ cho từng kỹ thuật viên, rồi in phiếu mã.</p>
     <div id="noExam" class="note info hidden">Chưa có bài nào. Giáo viên đăng bài ở địa chỉ <b>/g</b>.</div>
     <div class="scroll"><table id="examTbl" class="hidden"><thead><tr><th>Bài</th><th>Giáo viên</th><th>Đăng lúc</th><th>Giờ thi</th><th>Phòng</th><th></th></tr></thead><tbody id="examRows"></tbody></table></div>
   </div>
@@ -96,10 +111,15 @@ table{width:100%;border-collapse:collapse;font-size:15px}td,th{padding:9px 8px;b
     <div class="row">
       <div><label>Ngày thi</label><input type="date" id="date"></div>
       <div><label>Giờ mở khoá</label><input type="time" id="time" step="60"></div>
-      <div><label>Số phòng thi</label><input type="number" id="nrooms" min="1" max="200" value="20"></div>
     </div>
-    <p class="mute small">Giờ tính theo đồng hồ của máy tính này: <b id="tzInfo"></b>. Máy phòng thi luôn dùng giờ máy chủ. Khi đổi số phòng, mã của các phòng đã có được giữ nguyên.</p>
-    <button id="btnSched">Lưu lịch</button>
+    <p class="mute small">Giờ tính theo đồng hồ của máy tính này: <b id="tzInfo"></b>. Máy phòng thi luôn dùng giờ máy chủ. Mã của các phòng đã có được giữ nguyên khi đổi lịch.</p>
+    <h3 style="margin-top:18px">Phân phòng cho kỹ thuật viên</h3>
+    <p class="mute small">Chọn một kỹ thuật viên, rồi bấm vào các ô trên sơ đồ. Bấm lại ô đó để bỏ. Ô ghi “Trùng” là phòng đã dùng cho bài khác cùng giờ.</p>
+    <div class="brushes" id="brushes"></div>
+    <div style="display:flex;gap:8px;max-width:420px"><input type="text" id="ktvQuick" maxlength="80" placeholder="Thêm kỹ thuật viên mới"><button id="btnKtvQuick" class="b-light" style="margin:0;white-space:nowrap">Thêm</button></div>
+    <div id="mapBox" style="margin-top:14px"></div>
+    <div class="mute small" id="mapSum"></div>
+    <button id="btnSched">Lưu lịch và phân phòng</button>
     <button id="btnSchedX" class="b-grey">Đóng</button>
     <div id="schedErr" class="note err hidden"></div>
   </div>
@@ -107,7 +127,7 @@ table{width:100%;border-collapse:collapse;font-size:15px}td,th{padding:9px 8px;b
     <h2 id="codesTitle">Mã phòng</h2>
     <button id="btnPrint">🖨 In phiếu mã phòng</button>
     <button id="btnCodesX" class="b-grey">Đóng</button>
-    <div class="scroll"><table style="margin-top:10px"><thead><tr><th>Phòng</th><th>Mã</th><th>Link</th></tr></thead><tbody id="codeRows"></tbody></table></div>
+    <div class="scroll"><table style="margin-top:10px"><thead><tr><th>Phòng</th><th>Kỹ thuật viên</th><th>Mã</th><th>Link</th></tr></thead><tbody id="codeRows"></tbody></table></div>
   </div>
   <div class="card hidden" id="schoolHas">
     <h3>Khoá trường</h3>
@@ -146,6 +166,14 @@ table{width:100%;border-collapse:collapse;font-size:15px}td,th{padding:9px 8px;b
 
 <!-- ========== GIÁO VIÊN ========== -->
 <section id="t3" class="tab hidden">
+  <div class="card">
+    <h2>Kỹ thuật viên</h2>
+    <p class="mute small">Kỹ thuật viên không cần tài khoản, chỉ cần tên để phân phòng. Họ vào phòng bằng mã trên phiếu.</p>
+    <div style="display:flex;gap:8px;max-width:420px"><input type="text" id="ktvName" maxlength="80" placeholder="Họ tên kỹ thuật viên"><button id="btnKtv" style="margin:0;white-space:nowrap">Thêm</button></div>
+    <div id="ktvErr" class="note err hidden"></div>
+    <div id="noKtv" class="mute hidden" style="margin-top:10px">Chưa có kỹ thuật viên nào.</div>
+    <div class="scroll"><table id="ktvTbl" class="hidden" style="margin-top:8px"><thead><tr><th>Họ tên</th><th>Số phòng đang phân</th><th></th></tr></thead><tbody id="ktvRows"></tbody></table></div>
+  </div>
   <div class="card">
     <h2>Tạo tài khoản</h2>
     <p class="mute small">Mật khẩu được tạo tự động và chỉ hiện một lần. Giáo viên đổi được mật khẩu sau khi đăng nhập.</p>
@@ -211,7 +239,7 @@ table{width:100%;border-collapse:collapse;font-size:15px}td,th{padding:9px 8px;b
 
 <script>
 const $ = id => document.getElementById(id);
-let S = null, tab = sessionStorage.getItem('tab') || 't1', lastKey = null, schedId = null, codesId = null;
+let S = null, tab = sessionStorage.getItem('tab') || 't1', lastKey = null, schedId = null, codesId = null, assign = {}, brush = '';
 const picks = new Set();
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const pad = n => String(n).padStart(2, '0');
@@ -275,9 +303,10 @@ function render() {
   show('codesCard', !!cx);
   if (cx) {
     $('codesTitle').textContent = 'Mã phòng – ' + cx.title;
-    setHtml($('codeRows'), Object.entries(cx.codes).map(([r, c]) => `<tr><td><b>${r}</b></td><td class="code">${c}</td><td class="small mute">${esc(roomLink(c)) || '(bật truy cập từ xa để có link)'}</td></tr>`).join(''));
+    setHtml($('codeRows'), roomsByKtv(cx).map(([r, c]) => `<tr><td><b>${roomName(r)}</b> <span class="mute small">${esc(roomLabel(r))}</span></td><td>${esc(ktvName(cx.ktv[r])) || '<span class="mute">chưa phân</span>'}</td><td class="code">${c}</td><td class="small mute">${esc(roomLink(c)) || '(bật truy cập từ xa để có link)'}</td></tr>`).join(''));
   }
   if (schedId && !ex.find(e => e.id === schedId)) { schedId = null; show('schedCard', false); }
+  if (schedId) drawMap();
 
   // ----- Ngày thi
   $('clock').textContent = new Date(now).toLocaleTimeString('vi-VN');
@@ -298,7 +327,7 @@ function render() {
     <button class="b-green" data-play="${e.id}" id="bp-${e.id}">▶ Phát đồng loạt bài này</button>
     <button class="b-grey" data-cancel="${e.id}" id="bc-${e.id}">Huỷ lệnh phát</button>
     <button class="b-red" data-rel="${e.id}" id="br-${e.id}">Mở khoá khẩn cấp</button>
-    <div class="scroll"><table style="margin-top:10px"><thead><tr><th>Phòng</th><th>Kết nối</th><th>Trạng thái</th><th>Loa</th><th>Tiến độ</th></tr></thead><tbody id="rw-${e.id}"></tbody></table></div>
+    <div class="scroll"><table style="margin-top:10px"><thead><tr><th>Phòng</th><th>KTV</th><th>Kết nối</th><th>Trạng thái</th><th>Loa</th><th>Tiến độ</th></tr></thead><tbody id="rw-${e.id}"></tbody></table></div>
   </div>`).join(''));
   for (const e of sch) {
     const list = Object.entries(e.rooms), cnt = k => list.filter(([, s]) => s.status === k).length;
@@ -317,12 +346,14 @@ function render() {
     $('br-' + e.id).disabled = e.released;
     setHtml($('rw-' + e.id), list.map(([r, s]) => {
       const ago = s.lastSeen ? Math.round((now - s.lastSeen) / 1000) : null, on = ago !== null && ago < 10;
-      return `<tr><td><b>${r}</b></td><td class="${on ? 'on' : 'off'}">${ago === null ? '○ chưa kết nối' : on ? '● trực tuyến' : '○ mất kết nối ' + ago + 's'}</td>
+      return `<tr><td><b>${roomName(r)}</b></td><td>${esc(ktvName(e.ktv[r])) || '–'}</td><td class="${on ? 'on' : 'off'}">${ago === null ? '○ chưa kết nối' : on ? '● trực tuyến' : '○ mất kết nối ' + ago + 's'}</td>
         <td>${esc(s.status)}</td><td>${s.activated ? '✓' : '–'}</td><td>${s.dur ? mmss(s.pos) + ' / ' + mmss(s.dur) : ''}</td></tr>`;
     }).join(''));
   }
 
-  // ----- Giáo viên
+  // ----- Giáo viên & KTV
+  show('noKtv', !S.ktvs.length); show('ktvTbl', !!S.ktvs.length);
+  setHtml($('ktvRows'), S.ktvs.map(k => `<tr><td><b>${esc(k.name)}</b></td><td>${ex.reduce((n, e) => n + Object.values(e.ktv).filter(id => id === k.id).length, 0)}</td><td><button class="mini b-red" data-kdel="${k.id}">Xoá</button></td></tr>`).join(''));
   show('noUser', !S.users.length); show('userTbl', !!S.users.length);
   setHtml($('userRows'), S.users.map(u => `<tr><td><b>${esc(u.name)}</b></td><td>${esc(u.username)}</td><td>${u.role === 'admin' ? 'Admin' : 'Giáo viên'}</td><td>${u.examCount}</td>
     <td style="white-space:nowrap"><button class="mini b-light" data-reset="${u.id}">Đặt lại mật khẩu</button><button class="mini b-red" data-udel="${u.id}">Xoá</button></td></tr>`).join(''));
@@ -372,6 +403,62 @@ $('btnKeyAgain').onclick = () => lastKey && downloadKey(lastKey);
 $('btnKeyOk').onclick = () => { lastKey = null; show('schoolDone', false); ['ck1', 'ck2'].forEach(id => $(id).checked = false); $('btnKeyOk').disabled = true; refresh(); };
 window.addEventListener('beforeunload', e => { if (lastKey) { e.preventDefault(); e.returnValue = ''; } });
 
+// ---------- Sơ đồ phòng: chọn kỹ thuật viên rồi bấm ô ----------
+const roomName = r => 'P.' + r.slice(1);
+const ktvName = id => (S.ktvs.find(k => k.id === id) || {}).name || '';
+const ktvClass = id => 'k' + (S.ktvs.findIndex(k => k.id === id) % 8);
+function roomLabel(r) { for (const z of S.map) for (const f of z.floors) for (const c of f.rooms) if (c && 'P' + c[0] === r) return c[1]; return ''; }
+// Phiếu và bảng mã xếp theo từng kỹ thuật viên để dễ phát phiếu
+const roomsByKtv = e => Object.entries(e.codes).sort(([a], [b]) => ((ktvName(e.ktv[a]) || '~').localeCompare(ktvName(e.ktv[b]) || '~', 'vi')) || a.localeCompare(b));
+function plannedT0() { const t = new Date(`${$('date').value}T${$('time').value}`); return isNaN(t) ? null : t.getTime(); }
+function clashes() {   // phòng -> tên bài trùng giờ
+  const out = {}, me = S.exams.find(e => e.id === schedId), t0 = plannedT0(), span = e => (e.dur || 3600) * 1000;
+  if (!me || t0 === null) return out;
+  for (const o of S.exams) if (o.id !== schedId && o.t0 && t0 < o.t0 + span(o) && o.t0 < t0 + span(me)) for (const r of Object.keys(o.codes)) out[r] = o.title;
+  return out;
+}
+function drawMap() {
+  setHtml($('brushes'), [...S.ktvs.map(k => `<button class="brush ${ktvClass(k.id)} ${brush === k.id ? 'on' : ''}" data-brush="${k.id}">${esc(k.name)} (${Object.values(assign).filter(v => v === k.id).length})</button>`),
+    `<button class="brush none ${brush === '' ? 'on' : ''}" data-brush="" style="background:#cbd5e1">Chưa phân KTV (${Object.values(assign).filter(v => !v).length})</button>`].join(''));
+  const busy = clashes(), wc = (a) => `<td class="wc">WC<br>${a}</td>`, stairs = '<td class="y">CẦU<br>THANG</td>';
+  setHtml($('mapBox'), S.map.map(z => `<h3>${esc(z.title)}</h3><div class="scroll"><table class="map"><tbody>${z.floors.map(f => `<tr>
+    <td class="y">TẦNG<br>${f.n}</td>${wc('NỮ')}${wc('NAM')}${stairs}<td class="fix">${esc(f.wait)}</td>
+    ${f.rooms.map(c => {
+      if (!c) return stairs;
+      const r = 'P' + c[0], has = r in assign, clash = busy[r];
+      const cls = clash ? '' : !has ? '' : assign[r] ? ktvClass(assign[r]) : 'none';
+      const who = clash ? 'Trùng: ' + clash : has ? (ktvName(assign[r]) || 'Chưa phân KTV') : '';
+      return `<td><button class="cell ${cls}" data-room="${r}" ${clash ? 'disabled' : ''} title="${esc(who)}" aria-pressed="${has}"><b>P.${c[0]}</b>${esc(c[1])}${who ? `<i>${esc(who.length > 22 ? who.slice(0, 21) + '…' : who)}</i>` : ''}</button></td>`;
+    }).join('')}</tr>`).join('')}</tbody></table></div>`).join(''));
+  const n = Object.keys(assign).length, un = Object.values(assign).filter(v => !v).length;
+  $('mapSum').textContent = n ? `Đã chọn ${n} phòng${un ? `, ${un} phòng chưa có kỹ thuật viên` : ''}.` : 'Chưa chọn phòng nào.';
+  $('btnSched').disabled = !n;
+}
+$('mapBox').onclick = ev => {
+  const b = ev.target.closest('[data-room]'); if (!b || b.disabled) return;
+  const r = b.dataset.room;
+  if (r in assign && assign[r] === brush) delete assign[r]; else assign[r] = brush;
+  drawMap();
+};
+$('brushes').onclick = ev => { const b = ev.target.closest('[data-brush]'); if (b) { brush = b.dataset.brush; drawMap(); } };
+['date', 'time'].forEach(id => $(id).oninput = () => { if (schedId) drawMap(); });
+async function addKtv(input, errId) {
+  try {
+    const k = await api('ktv-create', { name: $(input).value });
+    $(input).value = ''; if (errId) note(errId, '');
+    if (schedId) brush = k.id;
+    await refresh();
+  } catch (e) { const m = e.code ? e.message : 'Mất kết nối với máy chủ.'; errId ? note(errId, m) : alert(m); }
+}
+$('btnKtvQuick').onclick = () => addKtv('ktvQuick');
+$('ktvQuick').onkeydown = e => { if (e.key === 'Enter') addKtv('ktvQuick'); };
+$('btnKtv').onclick = () => addKtv('ktvName', 'ktvErr');
+$('ktvName').onkeydown = e => { if (e.key === 'Enter') addKtv('ktvName', 'ktvErr'); };
+$('ktvRows').onclick = ev => {
+  const id = ev.target.dataset.kdel; if (!id) return;
+  if (confirm(`Xoá kỹ thuật viên ${ktvName(id)}? Các phòng của người này sẽ thành chưa phân.`)) { if (brush === id) brush = ''; for (const r of Object.keys(assign)) if (assign[r] === id) assign[r] = ''; act('ktv-delete', { id }); }
+};
+
 // ---------- Bảng bài nghe ----------
 $('examRows').onclick = async ev => {
   const d = ev.target.dataset, find = id => S.exams.find(e => e.id === id);
@@ -381,7 +468,9 @@ $('examRows').onclick = async ev => {
     const t = e.t0 ? new Date(e.t0) : new Date(Date.now() + 86400000);
     $('date').value = `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`;
     $('time').value = e.t0 ? `${pad(t.getHours())}:${pad(t.getMinutes())}` : '08:00';
-    $('nrooms').value = Object.keys(e.codes).length || 20;
+    assign = Object.fromEntries(Object.keys(e.codes).filter(roomLabel).map(r => [r, e.ktv[r] || '']));   // phòng kiểu cũ P01… không có trên sơ đồ thì bỏ
+    brush = S.ktvs[0]?.id || '';
+    drawMap();
     show('schedCard', true); $('schedCard').scrollIntoView({ behavior: 'smooth' });
   }
   if (d.codes) { codesId = d.codes; render(); $('codesCard').scrollIntoView({ behavior: 'smooth' }); }
@@ -395,18 +484,19 @@ $('btnCodesX').onclick = () => { codesId = null; render(); };
 $('btnSched').onclick = async () => {
   note('schedErr', '');
   if (!$('date').value || !$('time').value) return note('schedErr', 'Chưa chọn ngày và giờ mở khoá.');
-  const t0 = new Date(`${$('date').value}T${$('time').value}`), n = +$('nrooms').value;
+  const t0 = new Date(`${$('date').value}T${$('time').value}`);
   if (isNaN(t0)) return note('schedErr', 'Ngày giờ không hợp lệ.');
-  if (!(n >= 1 && n <= 200)) return note('schedErr', 'Số phòng từ 1 đến 200.');
+  const busy = clashes(), hit = Object.keys(assign).find(r => busy[r]);
+  if (hit) return note('schedErr', `${roomName(hit)} trùng giờ với bài "${busy[hit]}". Bấm bỏ phòng này hoặc đổi giờ.`);
   if (t0 <= Date.now() && !confirm('Giờ mở khoá đã ở quá khứ – các phòng sẽ mở được ngay. Vẫn tiếp tục (để diễn tập)?')) return;
-  try { const id = schedId; await api('schedule', { id, t0: t0.toISOString(), n }); schedId = null; show('schedCard', false); codesId = id; await refresh(); }
+  try { const id = schedId; await api('schedule', { id, t0: t0.toISOString(), assign }); schedId = null; show('schedCard', false); codesId = id; await refresh(); }
   catch (e) { note('schedErr', e.code ? e.message : 'Mất kết nối với máy chủ.'); }
 };
 
 // ---------- In phiếu ----------
 $('btnPrint').onclick = () => {
   const ex = S.exams.find(e => e.id === codesId); if (!ex) return;
-  const slips = Object.entries(ex.codes).map(([r, c]) => `<div class="slip"><div class="r">PHÒNG ${r.slice(1)}</div><div class="t">${esc(ex.title)}</div>
+  const slips = roomsByKtv(ex).map(([r, c]) => `<div class="slip"><div class="r">PHÒNG ${r.slice(1)}</div><div class="t">${esc(ex.title)}${ktvName(ex.ktv[r]) ? ' · KTV: <b>' + esc(ktvName(ex.ktv[r])) + '</b>' : ''}</div>
     <div>Mã truy cập:</div><div class="c">${c}</div>
     ${roomLink(c) ? `<div class="l">Mở trên máy phòng thi:<br><b>${esc(roomLink(c))}</b></div>` : `<div class="l">Mở địa chỉ admin cung cấp, nhập mã trên.</div>`}
     <div class="h">Mở khoá lúc ${fmt(ex.t0)}. Sau khi vào: bấm “Thử loa”, để nguyên máy, chờ lệnh phát.</div></div>`).join('');

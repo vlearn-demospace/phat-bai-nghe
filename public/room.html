@@ -91,7 +91,7 @@ async function start(manual) {
   room = info.room; mime = info.mime; sha = info.sha256; size = info.size; T0 = info.t0;
   localStorage.setItem('code', code);
   $('login').classList.add('hidden'); $('main').classList.remove('hidden');
-  $('title').textContent = 'Phòng ' + room.slice(1); $('examTitle').textContent = info.title;
+  $('title').textContent = 'Phòng ' + room.slice(1); $('examTitle').textContent = info.title + (info.ktv ? ' · Kỹ thuật viên: ' + info.ktv : '');
   if (started) return; started = true;
   await syncTime().catch(() => {});
   $('t0txt').textContent = new Date(T0).toLocaleString('vi-VN');
