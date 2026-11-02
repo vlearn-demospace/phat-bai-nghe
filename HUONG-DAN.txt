@@ -31,6 +31,7 @@ ADMIN – MỖI KỲ THI
 MÁY PHÒNG THI (kỹ thuật viên)
   Mở link trên phiếu (hoặc địa chỉ https:// rồi nhập mã), bấm "Thử loa", để nguyên.
   Nên dùng shortcut Chrome chế độ kiosk – lệnh có sẵn ở thẻ Truy cập từ xa.
+  Vào máy sớm: nhập sai mã 20 lần thì cả mạng bị chặn nhập mã 10 phút, nhưng máy đã vào vẫn chạy bình thường.
 
 LƯU Ý
   • Khoá chỉ giữ trong bộ nhớ: nếu tắt/mở lại chương trình, nạp lại file khoá.

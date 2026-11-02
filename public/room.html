@@ -50,12 +50,13 @@ audio{width:100%;margin-top:18px}.hidden{display:none}
 const $ = id => document.getElementById(id);
 const fromUrl = (location.pathname.match(/^\/([A-Za-z0-9]{4})$/) || [])[1] || new URLSearchParams(location.search).get('c');
 let code = (fromUrl || localStorage.getItem('code') || '').toUpperCase().replace(/[^A-Z0-9]/g, ''), room = '';
+let token = code && code === localStorage.getItem('code') ? localStorage.getItem('token') || '' : '', retry = null;
 let offset = 0, T0 = 0, mime = 'audio/mpeg', sha = '', size = 0, encBuf = null;
 let unlocked = false, unlocking = false, lastTry = 0, activated = false, serverReleased = false;
 let handledPlayAt = null, currentPlayAt = null, status = 'đã đăng nhập', started = false;
 const player = $('player');
 const now = () => Date.now() + offset;
-const qs = () => `code=${encodeURIComponent(code)}`;
+const qs = () => `token=${encodeURIComponent(token)}`;
 const hex = b => [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('');
 const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
 function step(id, cls, text) { const e = $(id); e.className = cls; e.textContent = (cls === 'ok' ? '✓ ' : cls === 'err' ? '✗ ' : '○ ') + text; }
@@ -76,6 +77,7 @@ async function syncTime() {
 async function login() {
   code = $('inCode').value.toUpperCase().replace(/[^A-Z0-9]/g, '');
   if (!code) return;
+  token = ''; clearTimeout(retry);
   $('btnLogin').disabled = true; $('loginMsg').textContent = '';
   await start(true);
   $('btnLogin').disabled = false;
@@ -84,12 +86,18 @@ async function login() {
 async function start(manual) {
   if (!window.crypto || !crypto.subtle) { $('loginMsg').textContent = 'Trình duyệt không cho phép giải mã: phải mở bằng địa chỉ https:// do admin cung cấp.'; return; }
   let r;
-  try { r = await fetch('/api/login?code=' + encodeURIComponent(code), { cache: 'no-store' }); }
+  try { r = await fetch('/api/login?' + (token ? qs() : 'code=' + encodeURIComponent(code)), { cache: 'no-store' }); }
   catch { $('loginMsg').textContent = 'Không kết nối được máy chủ. Kiểm tra mạng, thử lại.'; return; }
   const info = await r.json().catch(() => ({}));
-  if (!r.ok) { $('loginMsg').textContent = info.error || 'Sai mã'; localStorage.removeItem('code'); $('login').classList.remove('hidden'); $('main').classList.add('hidden'); return; }
+  if (!r.ok && token) { token = ''; localStorage.removeItem('token'); return start(manual); }
+  if (!r.ok) {
+    $('loginMsg').textContent = info.error || 'Sai mã'; $('login').classList.remove('hidden'); $('main').classList.add('hidden');
+    if (r.status === 429) retry = setTimeout(() => start(manual), 30000);   // đang bị chặn: giữ mã, tự thử lại
+    else localStorage.removeItem('code');
+    return;
+  }
   room = info.room; mime = info.mime; sha = info.sha256; size = info.size; T0 = info.t0;
-  localStorage.setItem('code', code);
+  token = info.token; localStorage.setItem('code', code); localStorage.setItem('token', token);
   $('login').classList.add('hidden'); $('main').classList.remove('hidden');
   $('title').textContent = 'Phòng ' + room.slice(1); $('examTitle').textContent = info.title + (info.ktv ? ' · Kỹ thuật viên: ' + info.ktv : '');
   if (started) return; started = true;
@@ -148,7 +156,7 @@ async function unlock() {
 async function report() {
   try {
     const r = await fetch('/api/report', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code, status, pos: player.currentTime || 0, dur: player.duration || 0, activated }) });
+      body: JSON.stringify({ token, status, pos: player.currentTime || 0, dur: player.duration || 0, activated }) });
     if (r.status === 403) { $('msg').textContent = 'Mã phòng không còn hiệu lực (admin đã đổi đề). Đăng xuất và nhập mã mới.'; return; }
     if (!r.ok) return;
     const d = await r.json(); serverReleased = d.released; currentPlayAt = d.playAt;
@@ -180,6 +188,6 @@ $('btnSpeaker').onclick = () => {   // bíp 1 giây; cú bấm này cũng cho ph
 $('btnPlay').onclick = () => { if (confirm('Phát bài nghe ngay tại phòng này?')) play(); };
 $('btnLogin').onclick = login;
 $('inCode').onkeydown = e => { if (e.key === 'Enter') login(); };
-$('btnLogout').onclick = () => { if (confirm('Đăng xuất khỏi phòng này?')) { localStorage.removeItem('code'); location.href = '/'; } };
+$('btnLogout').onclick = () => { if (confirm('Đăng xuất khỏi phòng này?')) { localStorage.removeItem('code'); localStorage.removeItem('token'); location.href = '/'; } };
 if (code) { $('inCode').value = code; start(); } else $('inCode').focus();
 </script></body></html>

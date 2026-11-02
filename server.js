@@ -16,7 +16,7 @@ fs.mkdirSync(EXAMS_DIR, { recursive: true });
 const readJson = (f, dflt) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return dflt; } };
 function writeJson(f, obj) { const t = f + '.tmp'; fs.writeFileSync(t, JSON.stringify(obj, null, 2)); fs.renameSync(t, f); }
 
-let exams = readJson(EXAMS_FILE, []);     // [{ id, title, teacherId, teacherName, mime, size, sha256, dur, wrappedKey, keyId, uploadedAt, t0, rooms }]
+let exams = readJson(EXAMS_FILE, []);     // [{ id, title, teacherId, teacherName, mime, size, sha256, dur, wrappedKey, keyId, uploadedAt, t0, rooms, tokens }]
 let users = readJson(USERS_FILE, []);     // [{ id, name, username, role, salt, hash, createdAt }]
 let school = readJson(SCHOOL_FILE, null); // { publicKey, keyId, createdAt } – chỉ có khoá công khai
 let ktvs = readJson(KTV_FILE, []);        // [{ id, name }] – kỹ thuật viên không có tài khoản, chỉ để phân phòng
@@ -76,6 +76,17 @@ function findRoom(code) {
   const c = norm(code);
   if (c.length !== CODE_LEN) return null;
   for (const e of exams) for (const [room, v] of Object.entries(e.rooms || {})) if (same(c, v)) return { exam: e, room };
+  return null;
+}
+// Thẻ của phòng: cấp khi nhập đúng mã, dùng cho mọi yêu cầu sau đó. Thẻ quá dài để dò nên không tính lần sai,
+// và máy đã vào không bị chặn khi có người khác cùng mạng nhập sai mã.
+function roomToken(e, room) {
+  const t = e.tokens || (e.tokens = {});
+  if (!t[room]) { t[room] = crypto.randomBytes(32).toString('hex'); saveExams(); }
+  return t[room];
+}
+function findRoomByToken(token) {
+  for (const e of exams) for (const [room, v] of Object.entries(e.tokens || {})) if (e.rooms && e.rooms[room] && same(token, v)) return { exam: e, room };
   return null;
 }
 function newCode() {
@@ -196,6 +207,7 @@ function schedule(e, t0, assign) {
   for (const r of rooms) if (!e.rooms[r]) e.rooms[r] = newCode();
   e.rooms = Object.fromEntries(rooms.map(r => [r, e.rooms[r]]));
   e.ktv = Object.fromEntries(rooms.filter(r => assign[r]).map(r => [r, assign[r]]));
+  e.tokens = Object.fromEntries(Object.entries(e.tokens || {}).filter(([r]) => e.rooms[r]));
   e.t0 = t0; saveExams();
   liveOf(e);
 }
@@ -309,25 +321,28 @@ http.createServer(async (req, res) => {
     if (req.method === 'POST' && !sameOrigin(req)) { req.resume(); return send(res, 403, { error: 'Yêu cầu không hợp lệ' }); }
 
     // ---------- Kỹ thuật viên: chỉ cần mã phòng ----------
-    if (p.startsWith('/api/') && !p.startsWith('/api/admin') && !p.startsWith('/api/t/') && blocked(ip)) return send(res, 429, { error: 'Nhập sai quá nhiều lần, thử lại sau 10 phút' });
-
     if (p === '/api/login') {
-      const f = findRoom(q.code);
-      if (!f) { fail(ip); log(`Đăng nhập SAI từ ${ip}`); return send(res, 403, { error: 'Sai mã truy cập' }); }
+      let f;
+      if (q.token) { f = findRoomByToken(q.token); if (!f) return send(res, 403, { error: 'Mã phòng không còn hiệu lực' }); }
+      else {
+        if (blocked('r:' + ip)) return send(res, 429, { error: 'Nhập sai quá nhiều lần, thử lại sau 10 phút' });
+        f = findRoom(q.code);
+        if (!f) { fail('r:' + ip); log(`Đăng nhập SAI từ ${ip}`); return send(res, 403, { error: 'Sai mã truy cập' }); }
+      }
       log(`${f.exam.title} / ${f.room} đăng nhập từ ${ip}`);
       const ktv = ktvs.find(k => k.id === (f.exam.ktv || {})[f.room]);
-      return send(res, 200, { room: f.room, title: f.exam.title, mime: f.exam.mime, sha256: f.exam.sha256, size: f.exam.size, t0: f.exam.t0, ktv: ktv ? ktv.name : '' });
+      return send(res, 200, { room: f.room, title: f.exam.title, mime: f.exam.mime, sha256: f.exam.sha256, size: f.exam.size, t0: f.exam.t0, ktv: ktv ? ktv.name : '', token: roomToken(f.exam, f.room) });
     }
     if (p === '/api/audio') {
-      const f = findRoom(q.code);
-      if (!f) { fail(ip); return send(res, 403, { error: 'Sai mã' }); }
+      const f = findRoomByToken(q.token);
+      if (!f) return send(res, 403, { error: 'Sai mã' });
       log(`${f.exam.title} / ${f.room} tải file đề (mã hoá)`);
       res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Content-Length': fs.statSync(encFile(f.exam.id)).size, 'Cache-Control': 'no-store' });
       return fs.createReadStream(encFile(f.exam.id)).pipe(res);
     }
     if (p === '/api/key') {
-      const f = findRoom(q.code);
-      if (!f) { fail(ip); return send(res, 403, { error: 'Sai mã' }); }
+      const f = findRoomByToken(q.token);
+      if (!f) return send(res, 403, { error: 'Sai mã' });
       if (!released(f.exam)) { log(`${f.exam.title} / ${f.room} xin khoá TRƯỚC GIỜ – từ chối`); return send(res, 403, { error: 'Chưa đến giờ' }); }
       const key = unwrapKey(f.exam);
       if (!key) return send(res, 503, { error: masterKey ? 'Bài này không mở được – báo admin' : 'Admin chưa nạp khoá' });
@@ -335,7 +350,7 @@ http.createServer(async (req, res) => {
       return send(res, 200, { key: key.toString('base64') });
     }
     if (p === '/api/report' && req.method === 'POST') {
-      const b = await readJsonBody(req), f = findRoom(b.code);
+      const b = await readJsonBody(req), f = findRoomByToken(b.token);
       if (!f) return send(res, 403, {});
       const l = liveOf(f.exam), s = l.rooms[f.room], st = String(b.status || '').slice(0, 60);
       if (s.status !== st) log(`${f.exam.title} / ${f.room}: ${st}`);
@@ -345,10 +360,10 @@ http.createServer(async (req, res) => {
 
     // ---------- Đăng nhập tài khoản ----------
     if (p === '/api/t/login' && req.method === 'POST') {
-      if (blocked(ip)) return send(res, 429, { error: 'Nhập sai quá nhiều lần, thử lại sau 10 phút' });
+      if (blocked('t:' + ip)) return send(res, 429, { error: 'Nhập sai quá nhiều lần, thử lại sau 10 phút' });
       const b = await readJsonBody(req), name = String(b.username || '').trim().toLowerCase();
       const user = users.find(x => x.username === name);
-      if (!user || !same(hashPw(b.password || '', user.salt), user.hash)) { fail(ip); log(`Đăng nhập tài khoản SAI "${name.slice(0, 40)}" từ ${ip}`); return send(res, 403, { error: 'Sai tên đăng nhập hoặc mật khẩu' }); }
+      if (!user || !same(hashPw(b.password || '', user.salt), user.hash)) { fail('t:' + ip); log(`Đăng nhập tài khoản SAI "${name.slice(0, 40)}" từ ${ip}`); return send(res, 403, { error: 'Sai tên đăng nhập hoặc mật khẩu' }); }
       const t = crypto.randomBytes(32).toString('hex');
       sessions.set(t, { userId: user.id, exp: Date.now() + SESSION_MS });
       log(`${user.name} đăng nhập từ ${ip}`);
