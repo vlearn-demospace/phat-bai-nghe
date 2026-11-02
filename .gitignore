@@ -1,0 +1,14 @@
+# Dữ liệu kỳ thi – KHÔNG BAO GIỜ đưa lên GitHub
+data/
+log.txt
+KHOA-*.txt
+key.txt
+*.enc
+*.tmp
+# File âm thanh gốc
+*.mp3
+*.wav
+*.m4a
+*.ogg
+*.aac
+node_modules/

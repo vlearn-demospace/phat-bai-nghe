@@ -1,0 +1,31 @@
+PHÁT BÀI NGHE CÓ KHOÁ THEO GIỜ – HƯỚNG DẪN
+==========================================
+
+CÀI ĐẶT (một lần, trên máy làm máy chủ)
+  • Node.js bản LTS: https://nodejs.org
+  • Để truy cập từ xa: mở Command Prompt, chạy  winget install Cloudflare.cloudflared
+
+SỬ DỤNG
+  Bấm đúp MO-CHUONG-TRINH.bat → trình duyệt tự mở Bảng điều khiển.
+  Giữ cửa sổ đen mở suốt buổi thi (đóng = tắt chương trình).
+  Bảng điều khiển có 4 bước, làm lần lượt:
+
+  1. Chuẩn bị đề  – kéo thả file nghe, chọn ngày giờ, số phòng → bấm "Mã hoá".
+                    Máy tự tải về FILE KHOÁ: chép vào USB rồi xoá khỏi máy.
+  2. Mã phòng     – xem và in phiếu mã cho từng phòng.
+  3. Truy cập từ xa – bấm "Bật truy cập từ xa", lấy địa chỉ https:// gửi các phòng.
+                    (Bật vào sáng ngày thi rồi in phiếu – phiếu sẽ có sẵn link.)
+  4. Ngày thi     – kéo thả file khoá từ USB vào; theo dõi các phòng;
+                    đến giờ bấm "Phát đồng loạt".
+
+MÁY PHÒNG THI
+  Mở link trên phiếu (hoặc địa chỉ https:// rồi nhập mã), bấm "Thử loa", để nguyên.
+  Nên dùng shortcut Chrome chế độ kiosk – lệnh có sẵn ở bước 3.
+
+LƯU Ý
+  • Khoá chỉ giữ trong bộ nhớ: nếu tắt/mở lại chương trình, nạp lại file khoá.
+  • Địa chỉ trycloudflare.com đổi mỗi lần bật lại → bật một lần và để nguyên.
+  • Mọi diễn biến ghi trong log.txt.
+
+DIỄN TẬP: chuẩn bị đề với file mp3 bất kỳ, giờ mở khoá 2–3 phút sau.
+  Mở http://localhost:8080/?c=<mã phòng> ở 2–3 cửa sổ khác nhau để giả lập các phòng.

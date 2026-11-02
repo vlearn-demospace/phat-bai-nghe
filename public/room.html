@@ -1,0 +1,184 @@
+<!doctype html><html lang="vi"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Phòng thi – Phát bài nghe</title>
+<style>
+*{box-sizing:border-box}
+body{font-family:"Segoe UI",Arial,sans-serif;background:#0f172a;color:#e2e8f0;margin:0;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:16px}
+.card{background:#1e293b;padding:32px 40px;border-radius:18px;width:min(760px,100%)}
+h1{margin:0 0 4px;font-size:30px}.muted{color:#94a3b8}
+.clock{font-size:72px;font-variant-numeric:tabular-nums;font-weight:700;margin:14px 0;letter-spacing:2px}
+.clock.ready{color:#4ade80}.clock.play{color:#60a5fa}
+.steps div{padding:7px 0;font-size:19px}.ok{color:#4ade80}.wait{color:#fbbf24}.err{color:#f87171}
+button{font:inherit;font-size:19px;padding:12px 20px;border-radius:12px;border:0;background:#3b82f6;color:#fff;cursor:pointer;margin:10px 10px 0 0;font-weight:600}
+button.secondary{background:#475569}button:disabled{opacity:.4;cursor:not-allowed}
+button.pulse{animation:p 1.4s infinite}@keyframes p{50%{box-shadow:0 0 0 10px #3b82f633}}
+input{font:inherit;font-size:30px;letter-spacing:6px;text-align:center;text-transform:uppercase;padding:14px;border-radius:12px;border:2px solid #475569;background:#0f172a;color:#fff;width:100%;margin:10px 0}
+input:focus{outline:none;border-color:#3b82f6}
+audio{width:100%;margin-top:18px}.hidden{display:none}
+.msg{min-height:26px;font-size:17px;margin-top:12px}
+.bar{height:8px;background:#334155;border-radius:4px;overflow:hidden;margin-top:6px}.bar div{height:100%;width:0;background:#3b82f6}
+</style></head><body>
+
+<div class="card" id="login">
+  <h1>Đăng nhập phòng thi</h1>
+  <p class="muted">Nhập mã truy cập in trên phiếu của phòng.</p>
+  <input id="inCode" maxlength="8" autocomplete="off" spellcheck="false" placeholder="MÃ PHÒNG">
+  <button id="btnLogin">Vào phòng</button>
+  <div class="msg err" id="loginMsg"></div>
+</div>
+
+<div class="card hidden" id="main">
+  <div class="muted" id="examTitle"></div>
+  <h1 id="title"></h1>
+  <div class="muted">Giờ máy chủ: <span id="srvClock"></span> · Mở khoá lúc <span id="t0txt"></span></div>
+  <div class="clock" id="countdown">--:--:--</div>
+  <div class="steps">
+    <div id="s1" class="wait">○ Tải file đề (đã mã hoá)</div>
+    <div id="s2" class="wait">○ Kiểm tra toàn vẹn file</div>
+    <div id="s3" class="wait">○ Bấm “Thử loa” để kiểm tra loa</div>
+    <div id="s4" class="wait">○ Mở khoá đúng giờ</div>
+  </div>
+  <div class="bar hidden" id="dlBar"><div></div></div>
+  <div class="msg muted" id="msg"></div>
+  <button id="btnSpeaker" class="pulse">🔊 Thử loa</button>
+  <button id="btnPlay" class="secondary" disabled>▶ Phát thủ công</button>
+  <button id="btnLogout" class="secondary">Đăng xuất</button>
+  <audio id="player" controls controlsList="nodownload noplaybackrate" class="hidden"></audio>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const fromUrl = new URLSearchParams(location.search).get('c');
+let code = (fromUrl || localStorage.getItem('code') || '').toUpperCase().replace(/[^A-Z0-9]/g, ''), room = '';
+let offset = 0, T0 = 0, mime = 'audio/mpeg', sha = '', size = 0, encBuf = null;
+let unlocked = false, unlocking = false, lastTry = 0, activated = false, serverReleased = false;
+let handledPlayAt = null, currentPlayAt = null, status = 'đã đăng nhập', started = false;
+const player = $('player');
+const now = () => Date.now() + offset;
+const qs = () => `room=${encodeURIComponent(room)}&code=${encodeURIComponent(code)}`;
+const hex = b => [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('');
+const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+function step(id, cls, text) { const e = $(id); e.className = cls; e.textContent = (cls === 'ok' ? '✓ ' : cls === 'err' ? '✗ ' : '○ ') + text; }
+function hms(ms) { const s = Math.max(0, Math.floor(ms / 1000)); const d = Math.floor(s / 86400); return (d ? d + 'n ' : '') + [s % 86400 / 3600 | 0, (s % 3600) / 60 | 0, s % 60].map(x => String(x).padStart(2, '0')).join(':'); }
+if (fromUrl) history.replaceState(null, '', location.pathname);   // không để mã nằm trên thanh địa chỉ
+
+// --- Lưu file MÃ HOÁ vào IndexedDB: tải lại trang / mất mạng vẫn còn ---
+function idb() { return new Promise((ok, no) => { const r = indexedDB.open('exam-audio', 1); r.onupgradeneeded = () => r.result.createObjectStore('f'); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); }); }
+async function idbGet(k) { try { const db = await idb(); return await new Promise(ok => { const r = db.transaction('f').objectStore('f').get(k); r.onsuccess = () => ok(r.result); r.onerror = () => ok(null); }); } catch { return null; } }
+async function idbPut(k, v) { try { const db = await idb(); await new Promise(ok => { const t = db.transaction('f', 'readwrite'); const s = t.objectStore('f'); s.clear(); s.put(v, k); t.oncomplete = ok; t.onerror = ok; }); } catch {} }
+async function idbDel(k) { try { const db = await idb(); await new Promise(ok => { const t = db.transaction('f', 'readwrite'); t.objectStore('f').delete(k); t.oncomplete = ok; t.onerror = ok; }); } catch {} }
+
+async function syncTime() {
+  const t1 = Date.now(); const r = await (await fetch('/api/time', { cache: 'no-store' })).json(); const t2 = Date.now();
+  offset = r.now - (t1 + t2) / 2; if (r.t0) T0 = r.t0;
+}
+
+async function login() {
+  code = $('inCode').value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (!code) return;
+  $('btnLogin').disabled = true; $('loginMsg').textContent = '';
+  await start(true);
+  $('btnLogin').disabled = false;
+}
+
+async function start(manual) {
+  if (!window.crypto || !crypto.subtle) { $('loginMsg').textContent = 'Trình duyệt không cho phép giải mã: phải mở bằng địa chỉ https:// do hội đồng cung cấp.'; return; }
+  let r;
+  try { r = await fetch('/api/login?code=' + encodeURIComponent(code), { cache: 'no-store' }); }
+  catch { $('loginMsg').textContent = 'Không kết nối được máy chủ. Kiểm tra mạng, thử lại.'; return; }
+  const info = await r.json().catch(() => ({}));
+  if (!r.ok) { $('loginMsg').textContent = info.error || 'Sai mã'; localStorage.removeItem('code'); $('login').classList.remove('hidden'); $('main').classList.add('hidden'); return; }
+  room = info.room; mime = info.mime; sha = info.sha256; size = info.size;
+  localStorage.setItem('code', code);
+  $('login').classList.add('hidden'); $('main').classList.remove('hidden');
+  $('title').textContent = 'Phòng ' + room.slice(1); $('examTitle').textContent = info.title;
+  if (started) return; started = true;
+  await syncTime().catch(() => {});
+  $('t0txt').textContent = new Date(T0).toLocaleString('vi-VN');
+  setInterval(() => syncTime().catch(() => {}), 60000);
+  setInterval(tick, 250); setInterval(report, 2000); report();
+  download();
+}
+
+async function download() {
+  try {
+    step('s1', 'wait', 'Đang tải file đề (đã mã hoá)…'); status = 'đang tải';
+    const k = 'enc-' + sha; let buf = await idbGet(k);
+    if (!buf) {
+      const r = await fetch('/api/audio?' + qs(), { cache: 'no-store' });
+      if (!r.ok) throw new Error('máy chủ từ chối');
+      const total = +r.headers.get('Content-Length') || size, reader = r.body.getReader(), parts = []; let got = 0;
+      $('dlBar').classList.remove('hidden');
+      for (;;) { const { done, value } = await reader.read(); if (done) break; parts.push(value); got += value.length; $('dlBar').firstElementChild.style.width = (total ? got / total * 100 : 50) + '%'; step('s1', 'wait', `Đang tải file đề… ${(got / 1048576).toFixed(1)} MB`); }
+      $('dlBar').classList.add('hidden');
+      buf = await new Blob(parts).arrayBuffer();
+    }
+    step('s1', 'ok', `Đã tải file đề (${(buf.byteLength / 1048576).toFixed(1)} MB)`);
+    if (hex(await crypto.subtle.digest('SHA-256', buf)) !== sha) {
+      await idbDel(k); step('s2', 'err', 'File hỏng – đang tải lại…'); setTimeout(download, 3000); return;
+    }
+    await idbPut(k, buf); encBuf = buf;
+    step('s2', 'ok', 'File toàn vẹn'); status = 'đã tải – chờ giờ';
+  } catch (e) { step('s1', 'err', 'Lỗi tải: ' + e.message + ' – tự thử lại sau 5 giây'); status = 'lỗi tải'; setTimeout(download, 5000); }
+}
+
+function tick() {
+  $('srvClock').textContent = new Date(now()).toLocaleTimeString('vi-VN');
+  const left = T0 - now(), cd = $('countdown');
+  if (!unlocked) { cd.textContent = left > 0 && !serverReleased ? hms(left) : '00:00:00'; cd.className = 'clock'; }
+  if ((left <= 0 || serverReleased) && encBuf && !unlocked && !unlocking) unlock();
+}
+
+async function unlock() {
+  if (Date.now() - lastTry < 3000) return; lastTry = Date.now(); unlocking = true;
+  try {
+    const r = await fetch('/api/key?' + qs(), { cache: 'no-store' });
+    if (!r.ok) { const e = await r.json().catch(() => ({})); step('s4', 'wait', 'Chờ máy chủ mở khoá… ' + (e.error || '')); return; }
+    const { key } = await r.json();
+    const k = await crypto.subtle.importKey('raw', b64(key), 'AES-GCM', false, ['decrypt']);
+    const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: new Uint8Array(encBuf, 0, 12) }, k, new Uint8Array(encBuf, 12));
+    player.src = URL.createObjectURL(new Blob([plain], { type: mime }));   // chỉ nằm trong bộ nhớ
+    player.classList.remove('hidden'); $('btnPlay').disabled = false; unlocked = true;
+    step('s4', 'ok', 'Đã mở khoá – sẵn sàng phát'); $('countdown').textContent = 'SẴN SÀNG'; $('countdown').className = 'clock ready'; status = 'sẵn sàng phát';
+    $('msg').textContent = 'Chờ lệnh phát đồng loạt từ hội đồng (hoặc bấm Phát thủ công khi được chỉ đạo).';
+  } catch (e) { step('s4', 'err', 'Lỗi mở khoá: ' + e.message); }
+  finally { unlocking = false; }
+}
+
+async function report() {
+  try {
+    const r = await fetch('/api/report', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ room, code, status, pos: player.currentTime || 0, dur: player.duration || 0, activated }) });
+    if (r.status === 403) { $('msg').textContent = 'Mã phòng không còn hiệu lực (hội đồng đã đổi đề). Đăng xuất và nhập mã mới.'; return; }
+    if (!r.ok) return;
+    const d = await r.json(); serverReleased = d.released; currentPlayAt = d.playAt;
+    if (d.playAt && d.playAt !== handledPlayAt && unlocked) {
+      handledPlayAt = d.playAt; const wait = d.playAt - now();
+      if (wait > -15000) {
+        $('msg').textContent = 'Đã nhận lệnh phát đồng loạt…';
+        setTimeout(() => { if (currentPlayAt === handledPlayAt) play(); else $('msg').textContent = 'Hội đồng đã huỷ lệnh phát.'; }, Math.max(0, wait));
+      } else $('msg').textContent = 'Lệnh phát đã quá 15 giây – bấm Phát thủ công nếu được chỉ đạo.';
+    }
+  } catch (e) { /* mất mạng tạm thời: file đã ở máy */ }
+}
+
+async function play() {
+  try { await player.play(); $('countdown').textContent = 'ĐANG PHÁT'; $('countdown').className = 'clock play'; $('msg').textContent = ''; }
+  catch (e) { $('msg').textContent = 'Trình duyệt chặn tự phát – bấm “Phát thủ công”.'; $('btnPlay').classList.add('pulse'); }
+}
+player.onplay = () => status = 'đang phát';
+player.onpause = () => { if (!player.ended) status = 'tạm dừng'; };
+player.onended = () => { status = 'đã phát xong'; $('countdown').textContent = 'ĐÃ PHÁT XONG'; };
+player.addEventListener('contextmenu', e => e.preventDefault());
+
+$('btnSpeaker').onclick = () => {   // bíp 1 giây; cú bấm này cũng cho phép trình duyệt tự phát âm thanh
+  const ac = new AudioContext(), o = ac.createOscillator(), g = ac.createGain();
+  g.gain.value = 0.2; o.frequency.value = 880; o.connect(g).connect(ac.destination); o.start(); o.stop(ac.currentTime + 1);
+  activated = true; step('s3', 'ok', 'Loa đã kích hoạt'); $('btnSpeaker').classList.remove('pulse');
+};
+$('btnPlay').onclick = () => { if (confirm('Phát bài nghe ngay tại phòng này?')) play(); };
+$('btnLogin').onclick = login;
+$('inCode').onkeydown = e => { if (e.key === 'Enter') login(); };
+$('btnLogout').onclick = () => { if (confirm('Đăng xuất khỏi phòng này?')) { localStorage.removeItem('code'); location.href = location.pathname; } };
+if (code) { $('inCode').value = code; start(); } else $('inCode').focus();
+</script></body></html>
