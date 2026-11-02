@@ -12,3 +12,5 @@ key.txt
 *.ogg
 *.aac
 node_modules/
+# Bộ nhớ đệm của wrangler (có thông tin tài khoản Cloudflare)
+.wrangler/

@@ -1,6 +1,6 @@
 <!doctype html><html lang="vi"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Bảng điều khiển – Phát bài nghe</title>
+<title>Admin – Phát bài nghe</title>
 <style>
 :root{--bg:#f4f6fb;--card:#fff;--ink:#0f172a;--mute:#64748b;--line:#e2e8f0;--blue:#2563eb;--green:#16a34a;--red:#dc2626;--amber:#d97706;--soft:#eef2ff}
 *{box-sizing:border-box}
@@ -13,122 +13,163 @@ header h1{margin:0;font-size:20px;font-weight:600}
 nav{display:flex;gap:4px;padding:0 24px;background:#fff;border-bottom:1px solid var(--line);overflow-x:auto}
 nav button{background:none;border:0;border-bottom:3px solid transparent;padding:14px 16px;font-size:16px;color:var(--mute);cursor:pointer;white-space:nowrap;border-radius:0;margin:0}
 nav button.on{color:var(--blue);border-bottom-color:var(--blue);font-weight:600}
-nav .n{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--line);color:var(--ink);font-size:13px;margin-right:6px}
-nav button.done .n{background:var(--green);color:#fff}
 main{max-width:1000px;margin:0 auto;padding:24px 16px 60px}
 .card{background:var(--card);border-radius:14px;padding:22px 24px;margin-bottom:16px;box-shadow:0 1px 3px #0001}
 h2{margin:0 0 4px;font-size:20px}h3{margin:0 0 10px;font-size:17px}
 .mute{color:var(--mute)}.small{font-size:14px}
 label{display:block;font-weight:600;margin:14px 0 6px}
-input[type=text],input[type=date],input[type=time],input[type=number],input[type=password],textarea{font:inherit;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;width:100%;background:#fff}
+input[type=text],input[type=date],input[type=time],input[type=number],input[type=password],select{font:inherit;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;width:100%;background:#fff}
 .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
 button{font:inherit;padding:11px 18px;border:0;border-radius:10px;background:var(--blue);color:#fff;cursor:pointer;margin:6px 8px 0 0;font-weight:600}
 button:disabled{opacity:.45;cursor:not-allowed}
 .b-green{background:var(--green)}.b-red{background:var(--red)}.b-grey{background:#64748b}.b-light{background:var(--soft);color:var(--blue)}
-.big-btn{font-size:20px;padding:16px 28px}
+.big-btn{font-size:20px;padding:16px 28px}.mini{padding:7px 12px;font-size:14px;margin:2px 4px 2px 0}
 .drop{border:2px dashed #94a3b8;border-radius:14px;padding:28px;text-align:center;cursor:pointer;background:#f8fafc;transition:.15s}
 .drop.over{border-color:var(--blue);background:var(--soft)}
 .drop b{display:block;font-size:18px;margin-bottom:4px}
 .note{padding:12px 16px;border-radius:10px;margin:12px 0;font-size:15px}
 .note.ok{background:#dcfce7;color:#14532d}.note.warn{background:#fef3c7;color:#78350f}.note.err{background:#fee2e2;color:#7f1d1d}.note.info{background:var(--soft);color:#1e3a8a}
-.bar{height:10px;background:var(--line);border-radius:6px;overflow:hidden;margin-top:10px}.bar div{height:100%;width:0;background:var(--blue);transition:width .2s}
-table{width:100%;border-collapse:collapse;font-size:15px}td,th{padding:9px 8px;border-bottom:1px solid var(--line);text-align:left}th{color:var(--mute);font-weight:600}
+table{width:100%;border-collapse:collapse;font-size:15px}td,th{padding:9px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{color:var(--mute);font-weight:600}
 .code{font-family:Consolas,monospace;font-size:18px;letter-spacing:2px;font-weight:700}
 .url{font-family:Consolas,monospace;font-size:20px;word-break:break-all;background:#f1f5f9;padding:12px 14px;border-radius:10px;margin:8px 0}
 .cmd{font-family:Consolas,monospace;font-size:13px;word-break:break-all;background:#0f172a;color:#e2e8f0;padding:12px 14px;border-radius:10px;margin:8px 0}
-.count{font-size:56px;font-weight:700;font-variant-numeric:tabular-nums;margin:6px 0}
+.count{font-size:34px;font-weight:700;font-variant-numeric:tabular-nums;margin:6px 0}
 .stats{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}
-.stat{background:#f1f5f9;border-radius:10px;padding:10px 14px;min-width:110px}.stat b{display:block;font-size:24px}
+.stat{background:#f1f5f9;border-radius:10px;padding:10px 14px;min-width:100px}.stat b{display:block;font-size:22px}
 .on{color:var(--green)}.off{color:var(--red)}
 .hidden{display:none!important}
 .check{display:flex;gap:10px;align-items:flex-start;margin:8px 0;font-weight:400}.check input{margin-top:4px;width:18px;height:18px}
+.scroll{overflow-x:auto}
 </style></head><body>
 
 <header>
-  <h1>🎧 Phát bài nghe – Bảng điều khiển hội đồng</h1>
-  <div class="chips"><span class="chip" id="chExam">Đề: –</span><span class="chip" id="chKey">Khoá: –</span><span class="chip" id="chNet">Từ xa: –</span></div>
+  <h1>🎧 Phát bài nghe – Admin</h1>
+  <div class="chips"><span class="chip" id="chExam">Bài: –</span><span class="chip" id="chKey">Khoá: –</span><span class="chip" id="chNet">Từ xa: –</span></div>
 </header>
 
 <div id="lostConn" class="hidden" style="background:#dc2626;color:#fff;padding:12px 24px;font-weight:600">⚠ Mất kết nối với máy chủ – cửa sổ đen “Phát bài nghe” đã bị tắt? Bấm đúp lại MO-CHUONG-TRINH.bat. Trang sẽ tự kết nối lại.</div>
-<!-- Đăng nhập khi mở từ máy khác -->
+
 <main id="loginView" class="hidden">
-  <div class="card" style="max-width:460px;margin:40px auto">
-    <h2>Đăng nhập hội đồng</h2>
-    <p class="mute">Bạn đang mở bảng điều khiển từ máy khác. Nhập mã quản trị (xem ở thẻ “Mã phòng” trên máy chủ).</p>
-    <input type="password" id="tok" placeholder="Mã quản trị" autocomplete="off">
-    <button id="btnTok">Vào</button> <span id="tokErr" class="off"></span>
+  <div class="card" style="max-width:420px;margin:40px auto">
+    <h2>Đăng nhập admin</h2>
+    <p class="mute">Bạn đang mở từ máy khác nên cần tài khoản admin. Trên chính máy chủ thì không cần đăng nhập.</p>
+    <label>Tên đăng nhập</label><input type="text" id="un" autocomplete="username" autocapitalize="none">
+    <label>Mật khẩu</label><input type="password" id="pw" autocomplete="current-password">
+    <button id="btnLogin">Đăng nhập</button>
+    <div id="loginErr" class="note err hidden"></div>
   </div>
 </main>
 
 <nav id="tabs" class="hidden">
-  <button data-t="t1"><span class="n">1</span>Chuẩn bị đề</button>
-  <button data-t="t2"><span class="n">2</span>Mã phòng</button>
-  <button data-t="t3"><span class="n">3</span>Truy cập từ xa</button>
-  <button data-t="t4"><span class="n">4</span>Ngày thi</button>
+  <button data-t="t1">Bài nghe</button>
+  <button data-t="t2">Ngày thi</button>
+  <button data-t="t3">Giáo viên</button>
+  <button data-t="t4">Truy cập từ xa</button>
 </nav>
 
 <main id="app" class="hidden">
 
-<!-- ========== 1. CHUẨN BỊ ĐỀ ========== -->
+<!-- ========== BÀI NGHE ========== -->
 <section id="t1" class="tab">
-  <div class="card" id="curExam"></div>
-  <div class="card" id="setupCard">
-    <h2 id="setupTitle">Chuẩn bị đề mới</h2>
-    <p class="mute">File nghe được <b>mã hoá ngay trong trình duyệt này</b>; máy chủ chỉ lưu bản đã mã hoá. Bạn sẽ nhận một <b>file khoá</b> – cất vào USB, sáng ngày thi mới nạp.</p>
-    <div id="remoteSetup" class="note warn hidden">Bước này chỉ làm được trên chính máy chủ (mở http://localhost:8080/admin trên máy đó).</div>
-    <div id="setupForm">
-      <label>File nghe</label>
-      <div class="drop" id="drop"><b>Kéo thả file nghe vào đây</b><span class="mute">hoặc bấm để chọn (mp3, wav, m4a, ogg)</span></div>
-      <input type="file" id="file" accept="audio/*,.mp3,.wav,.m4a,.ogg" hidden>
-      <div id="fileInfo" class="note info hidden"></div>
-      <audio id="preview" controls class="hidden" style="width:100%;margin-top:8px"></audio>
-      <label>Tên kỳ thi / ca thi</label>
-      <input type="text" id="title" placeholder="VD: Kỳ thi HSG Tiếng Anh – Ca sáng">
-      <div class="row">
-        <div><label>Ngày thi</label><input type="date" id="date"></div>
-        <div><label>Giờ mở khoá</label><input type="time" id="time" step="60"></div>
-        <div><label>Số phòng thi</label><input type="number" id="nrooms" min="1" max="200" value="20"></div>
-      </div>
-      <p class="mute small">Giờ tính theo đồng hồ của máy tính này: <b id="tzInfo"></b>. Máy phòng thi luôn dùng giờ máy chủ.</p>
-      <button id="btnSetup" class="big-btn">🔒 Mã hoá & tạo mã phòng</button>
-      <div id="setupProg" class="hidden"><div id="setupMsg" class="mute"></div><div class="bar"><div id="setupBar"></div></div></div>
-      <div id="setupErr" class="note err hidden"></div>
-    </div>
+  <div class="card hidden" id="schoolNo">
+    <h2>Bước đầu tiên: tạo khoá trường</h2>
+    <p class="mute">Giáo viên cần khoá này để đăng bài. Máy chủ chỉ lưu phần công khai; phần bí mật tải về dưới dạng một <b>file khoá</b>, cất vào USB, sáng ngày thi nạp một lần là mở được mọi bài đến giờ.</p>
+    <button id="btnSchool" class="big-btn">🔑 Tạo khoá trường</button>
+    <div id="schoolErr" class="note err hidden"></div>
   </div>
-  <div class="card hidden" id="keyDone">
-    <h2>✅ Đã chuẩn bị xong đề</h2>
-    <div class="note warn"><b>Quan trọng:</b> file khoá vừa được tải về (thư mục Tải xuống). Không có file này thì ngày thi sẽ <b>không phát được</b>.</div>
+  <div class="card hidden" id="schoolDone">
+    <h2>✅ Đã tạo khoá trường</h2>
+    <div class="note warn"><b>Quan trọng:</b> file khoá vừa được tải về (thư mục Tải xuống). Mất file này thì các bài chưa thi phải đăng lại.</div>
     <button id="btnKeyAgain" class="b-green">⬇ Tải lại file khoá</button>
     <label class="check"><input type="checkbox" id="ck1"> Tôi đã chép file khoá vào USB (nên chép 2 USB).</label>
     <label class="check"><input type="checkbox" id="ck2"> Tôi đã xoá file khoá khỏi thư mục Tải xuống của máy này.</label>
-    <label class="check"><input type="checkbox" id="ck3"> Tôi đã xoá file nghe gốc khỏi máy này (nếu không cần nữa).</label>
-    <button id="btnKeyOk" disabled>Xong – sang bước 2</button>
+    <button id="btnKeyOk" disabled>Xong</button>
+  </div>
+  <div class="card">
+    <h2>Các bài đã đăng</h2>
+    <p class="mute">Ai đăng bài nào, khi nào. Xếp giờ thi và số phòng cho từng bài, rồi in phiếu mã cho kỹ thuật viên.</p>
+    <div id="noExam" class="note info hidden">Chưa có bài nào. Giáo viên đăng bài ở địa chỉ <b>/g</b>.</div>
+    <div class="scroll"><table id="examTbl" class="hidden"><thead><tr><th>Bài</th><th>Giáo viên</th><th>Đăng lúc</th><th>Giờ thi</th><th>Phòng</th><th></th></tr></thead><tbody id="examRows"></tbody></table></div>
+  </div>
+  <div class="card hidden" id="schedCard">
+    <h2 id="schedTitle">Xếp lịch</h2>
+    <div class="row">
+      <div><label>Ngày thi</label><input type="date" id="date"></div>
+      <div><label>Giờ mở khoá</label><input type="time" id="time" step="60"></div>
+      <div><label>Số phòng thi</label><input type="number" id="nrooms" min="1" max="200" value="20"></div>
+    </div>
+    <p class="mute small">Giờ tính theo đồng hồ của máy tính này: <b id="tzInfo"></b>. Máy phòng thi luôn dùng giờ máy chủ. Khi đổi số phòng, mã của các phòng đã có được giữ nguyên.</p>
+    <button id="btnSched">Lưu lịch</button>
+    <button id="btnSchedX" class="b-grey">Đóng</button>
+    <div id="schedErr" class="note err hidden"></div>
+  </div>
+  <div class="card hidden" id="codesCard">
+    <h2 id="codesTitle">Mã phòng</h2>
+    <button id="btnPrint">🖨 In phiếu mã phòng</button>
+    <button id="btnCodesX" class="b-grey">Đóng</button>
+    <div class="scroll"><table style="margin-top:10px"><thead><tr><th>Phòng</th><th>Mã</th><th>Link</th></tr></thead><tbody id="codeRows"></tbody></table></div>
+  </div>
+  <div class="card hidden" id="schoolHas">
+    <h3>Khoá trường</h3>
+    <div class="mute small" id="schoolInfo"></div>
+    <button id="btnSchoolNew" class="b-red mini">Tạo khoá mới (các bài cũ sẽ không mở được)</button>
   </div>
 </section>
 
-<!-- ========== 2. MÃ PHÒNG ========== -->
+<!-- ========== NGÀY THI ========== -->
 <section id="t2" class="tab hidden">
   <div class="card">
-    <h2>Mã truy cập các phòng</h2>
-    <p class="mute">Mỗi phòng một mã. Cán bộ kỹ thuật chỉ cần nhập mã này (hoặc mở đường link in sẵn trên phiếu).</p>
-    <div id="noExam2" class="note warn hidden">Chưa có đề – làm bước 1 trước.</div>
-    <div id="codesBox">
-      <button id="btnPrint">🖨 In phiếu mã phòng</button>
-      <table><thead><tr><th>Phòng</th><th>Mã truy cập</th><th>Đường link trực tiếp</th></tr></thead><tbody id="codeRows"></tbody></table>
+    <h3>Khoá trường</h3>
+    <div class="mute small">Giờ máy chủ: <b id="clock"></b></div>
+    <div id="keyNo">
+      <p class="mute">Cắm USB, kéo thả file khoá vào ô dưới. Khoá chỉ giữ trong bộ nhớ máy chủ; tắt chương trình là mất, khi đó nạp lại.</p>
+      <div class="drop" id="kdrop"><b>Kéo thả file khoá vào đây</b><span class="mute">hoặc bấm để chọn file .txt</span></div>
+      <input type="file" id="kfile" accept=".txt,text/plain" hidden>
+      <div id="kErr" class="note err hidden"></div>
+    </div>
+    <div id="keyYes" class="hidden">
+      <div class="note ok">✓ Đã nạp khoá. Đến giờ, mỗi bài sẽ tự mở khoá cho các phòng của bài đó.</div>
+      <div id="keyBad" class="note err hidden"></div>
+      <button class="b-grey" id="btnUnkey">Gỡ khoá khỏi máy chủ</button>
     </div>
   </div>
-  <div class="card" id="adminTokCard">
-    <h3>Mã quản trị</h3>
-    <p class="mute small">Dùng khi hội đồng muốn theo dõi/điều khiển từ một máy khác (mở /admin qua địa chỉ truy cập từ xa).</p>
-    <div class="code" id="adminTok"></div>
+  <div class="card" id="playAllCard">
+    <h3>Phát đồng loạt nhiều bài</h3>
+    <p class="mute small">Tích các bài cần phát cùng lúc. Mọi phòng của các bài đó bắt đầu sau 5 giây; trong 5 giây đó có thể huỷ.</p>
+    <div id="playPicks"></div>
+    <button class="b-green big-btn" id="btnPlayMany">▶ Phát các bài đã chọn</button>
+    <button class="b-grey" id="btnCancelAll">Huỷ lệnh phát</button>
+  </div>
+  <div id="noSched" class="note info hidden">Chưa có bài nào được xếp lịch.</div>
+  <div id="liveCards"></div>
+</section>
+
+<!-- ========== GIÁO VIÊN ========== -->
+<section id="t3" class="tab hidden">
+  <div class="card">
+    <h2>Tạo tài khoản</h2>
+    <p class="mute small">Mật khẩu được tạo tự động và chỉ hiện một lần. Giáo viên đổi được mật khẩu sau khi đăng nhập.</p>
+    <div class="row">
+      <div><label>Họ tên</label><input type="text" id="uName" maxlength="80"></div>
+      <div><label>Tên đăng nhập</label><input type="text" id="uLogin" maxlength="30" placeholder="vd: co.lan" autocapitalize="none"></div>
+      <div><label>Vai trò</label><select id="uRole"><option value="teacher">Giáo viên</option><option value="admin">Admin</option></select></div>
+    </div>
+    <button id="btnUser">Tạo tài khoản</button>
+    <div id="uErr" class="note err hidden"></div>
+    <div id="uDone" class="note ok hidden"></div>
+  </div>
+  <div class="card">
+    <h2>Danh sách tài khoản</h2>
+    <div id="noUser" class="mute hidden" style="margin-top:8px">Chưa có tài khoản nào.</div>
+    <div class="scroll"><table id="userTbl" class="hidden"><thead><tr><th>Họ tên</th><th>Đăng nhập</th><th>Vai trò</th><th>Số bài</th><th></th></tr></thead><tbody id="userRows"></tbody></table></div>
   </div>
 </section>
 
-<!-- ========== 3. TRUY CẬP TỪ XA ========== -->
-<section id="t3" class="tab hidden">
+<!-- ========== TRUY CẬP TỪ XA ========== -->
+<section id="t4" class="tab hidden">
   <div class="card">
-    <h2>Cho máy phòng thi kết nối</h2>
-    <p class="mute">Bật đường hầm HTTPS miễn phí của Cloudflare để 20 máy phòng thi truy cập được (trình duyệt chỉ cho giải mã qua HTTPS).</p>
+    <h2>Cho giáo viên và máy phòng thi kết nối</h2>
+    <p class="mute">Bật đường hầm HTTPS miễn phí của Cloudflare (trình duyệt chỉ cho mã hoá và giải mã qua HTTPS).</p>
     <div id="tunOff">
       <button id="btnTunOn" class="b-green big-btn">🌐 Bật truy cập từ xa</button>
       <div id="tunMsg" class="note info hidden"></div>
@@ -139,248 +180,235 @@ table{width:100%;border-collapse:collapse;font-size:15px}td,th{padding:9px 8px;b
       <button class="b-light" data-copy="winget install Cloudflare.cloudflared">Sao chép lệnh</button>
     </div>
     <div id="tunOn" class="hidden">
-      <div class="note ok">Đang bật. Địa chỉ cho máy phòng thi:</div>
-      <div class="url" id="tunUrl"></div>
-      <button class="b-light" id="cpUrl">Sao chép địa chỉ</button>
+      <div class="note ok">Đang bật. Các địa chỉ:</div>
+      <label>Kỹ thuật viên (nhập mã)</label><div class="url" id="urlK"></div>
+      <label>Giáo viên (đăng bài)</label><div class="url" id="urlG"></div>
+      <label>Admin từ máy khác</label><div class="url" id="urlA"></div>
+      <button class="b-light" id="cpUrl">Sao chép địa chỉ kỹ thuật viên</button>
+      <button class="b-light" id="cpG">Sao chép địa chỉ giáo viên</button>
       <button class="b-grey" id="btnTunOff">Tắt truy cập từ xa</button>
       <h3 style="margin-top:20px">Shortcut cho máy phòng thi (khuyên dùng)</h3>
       <p class="mute small">Tạo shortcut trên Desktop máy phòng thi, dán lệnh dưới vào ô “location”. Chrome sẽ mở toàn màn hình và được phép tự phát âm thanh. Thoát bằng Alt+F4.</p>
       <div class="cmd" id="kiosk"></div>
       <button class="b-light" id="cpKiosk">Sao chép lệnh shortcut</button>
-      <div class="note warn small">Địa chỉ dạng trycloudflare.com <b>đổi mỗi lần bật lại</b>. Nên bật vào sáng ngày thi rồi để nguyên; phiếu mã in sau khi bật sẽ có sẵn link.</div>
+      <div class="note warn small" id="tunWarn">Địa chỉ dạng trycloudflare.com <b>đổi mỗi lần bật lại</b>. Nên bật một lần rồi để nguyên; phiếu mã in sau khi bật sẽ có sẵn link.</div>
     </div>
     <div id="remoteTun" class="note warn hidden">Chỉ bật/tắt được trên chính máy chủ.</div>
   </div>
-</section>
-
-<!-- ========== 4. NGÀY THI ========== -->
-<section id="t4" class="tab hidden">
-  <div class="card">
-    <h2 id="examName">Ngày thi</h2>
-    <div class="mute">Giờ máy chủ: <b id="clock"></b> · Giờ mở khoá: <b id="t0txt"></b></div>
-    <div class="count" id="cd">–</div>
-  </div>
-  <div class="card">
-    <h3>Khoá giải mã</h3>
-    <div id="keyNo">
-      <p class="mute">Cắm USB, kéo thả file khoá vào ô dưới (hoặc dán nội dung khoá). Khoá chỉ giữ trong bộ nhớ máy chủ; tắt chương trình là mất, khi đó nạp lại.</p>
-      <div class="drop" id="kdrop"><b>Kéo thả file khoá vào đây</b><span class="mute">hoặc bấm để chọn file .txt</span></div>
-      <input type="file" id="kfile" accept=".txt,text/plain" hidden>
-      <label>…hoặc dán khoá</label>
-      <div style="display:flex;gap:8px"><input type="text" id="kpaste" placeholder="Chuỗi khoá 44 ký tự"><button id="btnKPaste" style="margin:0">Nạp</button></div>
-      <div id="kErr" class="note err hidden"></div>
+  <div class="card hidden" id="linkCard">
+    <h3>Link ngắn cố định</h3>
+    <p class="mute small" id="linkInfo"></p>
+    <div id="linkMsg" class="note err hidden"></div>
+    <div class="row">
+      <div><label>Địa chỉ</label><input type="text" id="linkUrl" placeholder="https://lvcnghe.pages.dev" autocomplete="off"></div>
+      <div><label>Mã link</label><input type="password" id="linkSecret" autocomplete="off"></div>
     </div>
-    <div id="keyYes" class="hidden">
-      <div class="note ok">✓ Đã nạp khoá, đã kiểm tra khớp với đề. Đến giờ các phòng sẽ tự mở khoá.</div>
-      <button class="b-grey" id="btnUnkey">Gỡ khoá khỏi máy chủ</button>
-    </div>
-  </div>
-  <div class="card">
-    <h3>Các phòng thi</h3>
-    <div class="stats" id="stats"></div>
-    <div id="playNote" class="note info hidden"></div>
-    <button class="b-green big-btn" id="btnPlay">▶ Phát đồng loạt</button>
-    <button class="b-grey" id="btnCancel">Huỷ lệnh phát</button>
-    <button class="b-red" id="btnRelease">Mở khoá khẩn cấp</button>
-    <p class="mute small">“Phát đồng loạt” phát sau 5 giây ở mọi phòng đã sẵn sàng; trong 5 giây đó có thể huỷ. “Mở khoá khẩn cấp” chỉ dùng khi có chỉ đạo mở trước giờ.</p>
-    <table style="margin-top:10px"><thead><tr><th>Phòng</th><th>Kết nối</th><th>Trạng thái</th><th>Loa</th><th>Tiến độ</th></tr></thead><tbody id="rows"></tbody></table>
+    <button id="btnLink" class="b-light">Lưu link ngắn</button>
+    <div id="linkErr" class="note err hidden"></div>
   </div>
 </section>
 </main>
 
 <script>
 const $ = id => document.getElementById(id);
-let token = sessionStorage.getItem('adminToken') || '';
-let S = null, lastKey = null, tab = sessionStorage.getItem('tab') || 't1', audioFile = null;
+let S = null, tab = sessionStorage.getItem('tab') || 't1', lastKey = null, schedId = null, codesId = null;
+const picks = new Set();
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const pad = n => String(n).padStart(2, '0');
 const hms = ms => { const s = Math.max(0, Math.floor(ms / 1000)); const d = Math.floor(s / 86400); return (d ? d + ' ngày ' : '') + [s % 86400 / 3600 | 0, s % 3600 / 60 | 0, s % 60].map(pad).join(':'); };
 const mmss = s => pad(Math.floor(s / 60)) + ':' + pad(Math.floor(s % 60));
 const fmt = t => new Date(t).toLocaleString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+const fmtShort = t => new Date(t).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 const mb = b => (b / 1048576).toFixed(1) + ' MB';
 const show = (id, on) => $(id).classList.toggle('hidden', !on);
 function note(id, text) { $(id).textContent = text; show(id, !!text); }
+// Chỉ vẽ lại khi nội dung đổi, để không làm mất cú bấm giữa hai lần cập nhật mỗi giây
+function setHtml(el, html) { if (el._h !== html) { el.innerHTML = html; el._h = html; } }
 
-const NETMSG = 'Mất kết nối với máy chủ. Kiểm tra cửa sổ đen "Phát bài nghe" còn mở không (nếu đã tắt: bấm đúp lại MO-CHUONG-TRINH.bat). Nếu cửa sổ vẫn mở, phần mềm diệt virus/tường lửa có thể đang chặn – xem dòng cuối trong cửa sổ đen hoặc file log.txt.';
-async function api(a, opt = {}) {
-  const r = await fetch(`/api/admin/${a}?${opt.q || ''}${opt.q ? '&' : ''}token=${encodeURIComponent(token)}`, { method: opt.body !== undefined ? 'POST' : 'GET', body: opt.body, headers: opt.json ? { 'Content-Type': 'application/json' } : {}, cache: 'no-store' });
+async function api(a, body) {
+  const r = await fetch('/api/admin/' + a, { method: body !== undefined ? 'POST' : 'GET', body: body !== undefined ? JSON.stringify(body) : undefined, headers: body !== undefined ? { 'Content-Type': 'application/json' } : {}, cache: 'no-store' });
   const d = await r.json().catch(() => ({}));
   if (!r.ok) { const e = new Error(d.error || 'Lỗi ' + r.status); e.code = r.status; throw e; }
   return d;
 }
-const post = (a, obj) => api(a, { body: JSON.stringify(obj || {}), json: true });
+const act = async (a, body) => { try { const d = await api(a, body); await refresh(); return d; } catch (e) { alert(e.code ? e.message : 'Mất kết nối với máy chủ.'); } };
 
-// ---------- Tabs ----------
 function go(t) { tab = t; sessionStorage.setItem('tab', t); document.querySelectorAll('.tab').forEach(s => show(s.id, s.id === t)); document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.t === t)); }
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => go(b.dataset.t));
 
-// ---------- Trạng thái ----------
 async function refresh() {
   try { S = await api('status'); show('lostConn', false); }
   catch (e) {
     show('lostConn', !e.code);
-    if (e.code === 403) { show('loginView', true); show('app', false); show('tabs', false); if (token) $('tokErr').textContent = 'Sai mã quản trị'; }
+    if (e.code === 403) { show('loginView', true); show('app', false); show('tabs', false); }
     return;
   }
   show('loginView', false); show('app', true); show('tabs', true);
   render();
 }
 
+// Có link ngắn thì mọi địa chỉ phát ra đều dùng link ngắn, vì nó không đổi khi bật lại đường hầm
+const baseUrl = () => S.short?.url || S.tunnel.url || (S.local ? '' : location.origin);
+function roomLink(code) { const b = baseUrl(); return b ? `${b}/${code}` : ''; }
+
 function render() {
-  const ex = S.exam, now = S.now;
+  const now = S.now, ex = S.exams, sch = ex.filter(e => e.t0), tn = S.tunnel;
   // chips
-  $('chExam').textContent = ex ? 'Đề: ' + ex.title : 'Đề: chưa có'; $('chExam').className = 'chip ' + (ex ? 'ok' : 'bad');
+  $('chExam').textContent = `Bài: ${ex.length} · đã xếp lịch: ${sch.length}`; $('chExam').className = 'chip ' + (ex.length ? 'ok' : '');
   $('chKey').textContent = S.hasKey ? 'Khoá: đã nạp' : 'Khoá: chưa nạp'; $('chKey').className = 'chip ' + (S.hasKey ? 'ok' : '');
-  const tn = S.tunnel;
   $('chNet').textContent = tn.status === 'on' ? 'Từ xa: đang bật' : tn.status === 'starting' ? 'Từ xa: đang mở…' : 'Từ xa: tắt';
   $('chNet').className = 'chip ' + (tn.status === 'on' ? 'ok' : '');
-  const btns = document.querySelectorAll('nav button');
-  btns[0].classList.toggle('done', !!ex); btns[1].classList.toggle('done', !!ex); btns[2].classList.toggle('done', tn.status === 'on'); btns[3].classList.toggle('done', S.hasKey);
 
-  // ----- Tab 1
-  $('curExam').innerHTML = ex
-    ? `<h2>Đề hiện tại: ${esc(ex.title)}</h2><div class="mute">Mở khoá lúc <b>${fmt(ex.t0)}</b> · ${ex.roomCount} phòng · ${mb(ex.size)} · chuẩn bị lúc ${new Date(ex.createdAt).toLocaleString('vi-VN')}</div>
-       ${S.local ? '<button class="b-red" id="btnDel" style="margin-top:12px">Xoá đề này</button>' : ''}`
-    : `<h2>Chưa có đề</h2><div class="mute">Làm theo các bước bên dưới.</div>`;
-  if ($('btnDel')) $('btnDel').onclick = delExam;
-  $('setupTitle').textContent = ex ? 'Thay bằng đề mới' : 'Chuẩn bị đề mới';
-  show('remoteSetup', !S.local); show('setupForm', S.local);
+  // ----- Bài nghe
+  show('schoolNo', !S.hasSchoolKey && !lastKey); show('schoolHas', S.hasSchoolKey && !lastKey);
+  if (S.hasSchoolKey) $('schoolInfo').textContent = 'Tạo lúc ' + new Date(S.schoolKeyAt).toLocaleString('vi-VN');
+  show('noExam', !ex.length); show('examTbl', !!ex.length);
+  setHtml($('examRows'), ex.map(e => `<tr>
+    <td><b>${esc(e.title)}</b><div class="mute small">${mb(e.size)}${e.dur ? ' · dài ' + mmss(e.dur) : ''}${e.oldKey ? ' · <span class="off">khoá trường đã đổi, cần đăng lại</span>' : ''}${e.bad ? ' · <span class="off">không mở được, cần đăng lại</span>' : ''}</div></td>
+    <td>${esc(e.teacherName)}</td>
+    <td class="small">${fmtShort(e.uploadedAt)}</td>
+    <td class="small">${e.t0 ? fmtShort(e.t0) : '<span class="mute">chưa xếp</span>'}</td>
+    <td>${Object.keys(e.codes).length || '–'}</td>
+    <td style="white-space:nowrap"><button class="mini" data-sched="${e.id}">${e.t0 ? 'Đổi lịch' : 'Xếp lịch'}</button>${e.t0 ? `<button class="mini b-light" data-codes="${e.id}">Mã phòng</button>` : ''}<button class="mini b-red" data-del="${e.id}">Xoá</button></td>
+  </tr>`).join(''));
+  const cx = ex.find(e => e.id === codesId);
+  show('codesCard', !!cx);
+  if (cx) {
+    $('codesTitle').textContent = 'Mã phòng – ' + cx.title;
+    setHtml($('codeRows'), Object.entries(cx.codes).map(([r, c]) => `<tr><td><b>${r}</b></td><td class="code">${c}</td><td class="small mute">${esc(roomLink(c)) || '(bật truy cập từ xa để có link)'}</td></tr>`).join(''));
+  }
+  if (schedId && !ex.find(e => e.id === schedId)) { schedId = null; show('schedCard', false); }
 
-  // ----- Tab 2
-  show('noExam2', !ex); show('codesBox', !!ex);
-  const base = tn.url || '';
-  const rowsHtml = Object.entries(S.codes).map(([r, c]) => `<tr><td><b>${r}</b></td><td class="code">${c}</td><td class="small mute">${base ? esc(base + '/?c=' + c) : '(bật bước 3 để có link)'}</td></tr>`).join('');
-  if ($('codeRows').dataset.h !== rowsHtml) { $('codeRows').innerHTML = rowsHtml; $('codeRows').dataset.h = rowsHtml; }
-  show('adminTokCard', !!S.adminToken); $('adminTok').textContent = S.adminToken || '';
+  // ----- Ngày thi
+  $('clock').textContent = new Date(now).toLocaleTimeString('vi-VN');
+  show('keyNo', !S.hasKey); show('keyYes', S.hasKey);
+  const bad = ex.filter(e => e.bad);
+  note('keyBad', bad.length ? '⚠ Không mở được: ' + bad.map(e => e.title).join(', ') + '. Nhờ giáo viên đăng lại.' : '');
+  show('noSched', !sch.length); show('playAllCard', sch.length > 1);
+  setHtml($('playPicks'), sch.map(e => `<label class="check"><input type="checkbox" data-pick="${e.id}" ${picks.has(e.id) ? 'checked' : ''}> ${esc(e.title)} <span class="mute small">(${fmtShort(e.t0)})</span></label>`).join(''));
+  document.querySelectorAll('[data-pick]').forEach(c => c.checked = picks.has(c.dataset.pick));
+  $('btnPlayMany').disabled = ![...picks].some(id => { const e = ex.find(x => x.id === id); return e && e.released && S.hasKey; });
+  $('btnCancelAll').disabled = !sch.some(e => e.playAt && e.playAt > now);
+  setHtml($('liveCards'), sch.map(e => `<div class="card">
+    <h2>${esc(e.title)}</h2>
+    <div class="mute small">${esc(e.teacherName)} · Mở khoá lúc <b>${fmt(e.t0)}</b></div>
+    <div class="count" id="cd-${e.id}"></div>
+    <div class="stats" id="st-${e.id}"></div>
+    <div class="note hidden" id="pn-${e.id}"></div>
+    <button class="b-green" data-play="${e.id}" id="bp-${e.id}">▶ Phát đồng loạt bài này</button>
+    <button class="b-grey" data-cancel="${e.id}" id="bc-${e.id}">Huỷ lệnh phát</button>
+    <button class="b-red" data-rel="${e.id}" id="br-${e.id}">Mở khoá khẩn cấp</button>
+    <div class="scroll"><table style="margin-top:10px"><thead><tr><th>Phòng</th><th>Kết nối</th><th>Trạng thái</th><th>Loa</th><th>Tiến độ</th></tr></thead><tbody id="rw-${e.id}"></tbody></table></div>
+  </div>`).join(''));
+  for (const e of sch) {
+    const list = Object.entries(e.rooms), cnt = k => list.filter(([, s]) => s.status === k).length;
+    const online = list.filter(([, s]) => s.lastSeen && now - s.lastSeen < 10000).length;
+    const cd = $('cd-' + e.id);
+    cd.textContent = e.released ? (e.force && now < e.t0 ? 'ĐÃ MỞ KHOÁ KHẨN CẤP' : 'ĐÃ ĐẾN GIỜ') : 'Còn ' + hms(e.t0 - now);
+    cd.style.color = e.released ? 'var(--green)' : '';
+    setHtml($('st-' + e.id), [['Trực tuyến', online + '/' + list.length], ['Đã tải đề', list.filter(([, s]) => /chờ giờ|sẵn sàng|đang phát|tạm dừng|xong/.test(s.status)).length], ['Loa bật', list.filter(([, s]) => s.activated).length], ['Sẵn sàng', cnt('sẵn sàng phát')], ['Đang phát', cnt('đang phát')], ['Xong', cnt('đã phát xong')]]
+      .map(([k, v]) => `<div class="stat"><span class="mute small">${k}</span><b>${v}</b></div>`).join(''));
+    const warn = !S.hasKey ? (e.released ? '⚠ ĐÃ ĐẾN GIỜ nhưng chưa nạp khoá – các phòng đang chờ. Nạp khoá ngay!' : '⚠ Chưa nạp khoá – nhớ nạp trước giờ thi.') : '';
+    const pn = $('pn-' + e.id);
+    pn.textContent = e.playAt ? (e.playAt > now ? `Lệnh phát: các phòng bắt đầu sau ${Math.ceil((e.playAt - now) / 1000)} giây…` : `Đã phát lệnh lúc ${new Date(e.playAt).toLocaleTimeString('vi-VN')}`) : warn;
+    pn.className = 'note ' + (e.playAt ? 'info' : 'warn') + (pn.textContent ? '' : ' hidden');
+    $('bp-' + e.id).disabled = !e.released || !S.hasKey || e.oldKey || e.bad;
+    $('bc-' + e.id).disabled = !(e.playAt && e.playAt > now);
+    $('br-' + e.id).disabled = e.released;
+    setHtml($('rw-' + e.id), list.map(([r, s]) => {
+      const ago = s.lastSeen ? Math.round((now - s.lastSeen) / 1000) : null, on = ago !== null && ago < 10;
+      return `<tr><td><b>${r}</b></td><td class="${on ? 'on' : 'off'}">${ago === null ? '○ chưa kết nối' : on ? '● trực tuyến' : '○ mất kết nối ' + ago + 's'}</td>
+        <td>${esc(s.status)}</td><td>${s.activated ? '✓' : '–'}</td><td>${s.dur ? mmss(s.pos) + ' / ' + mmss(s.dur) : ''}</td></tr>`;
+    }).join(''));
+  }
 
-  // ----- Tab 3
+  // ----- Giáo viên
+  show('noUser', !S.users.length); show('userTbl', !!S.users.length);
+  setHtml($('userRows'), S.users.map(u => `<tr><td><b>${esc(u.name)}</b></td><td>${esc(u.username)}</td><td>${u.role === 'admin' ? 'Admin' : 'Giáo viên'}</td><td>${u.examCount}</td>
+    <td style="white-space:nowrap"><button class="mini b-light" data-reset="${u.id}">Đặt lại mật khẩu</button><button class="mini b-red" data-udel="${u.id}">Xoá</button></td></tr>`).join(''));
+
+  // ----- Truy cập từ xa
   show('remoteTun', !S.local);
   show('tunMissing', S.local && tn.status === 'missing');
   show('tunOff', S.local && tn.status !== 'on' && tn.status !== 'missing');
   show('tunOn', tn.status === 'on' && S.local);
   $('btnTunOn').disabled = tn.status === 'starting';
   note('tunMsg', tn.msg);
-  $('tunUrl').textContent = tn.url;
-  $('kiosk').textContent = `"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" --kiosk --autoplay-policy=no-user-gesture-required ${tn.url}/`;
-
-  // ----- Tab 4
-  $('examName').textContent = ex ? ex.title : 'Chưa có đề';
-  $('clock').textContent = new Date(now).toLocaleTimeString('vi-VN');
-  $('t0txt').textContent = ex ? fmt(ex.t0) : '–';
-  $('cd').textContent = !ex ? '–' : S.released ? (S.forceRelease && now < ex.t0 ? 'ĐÃ MỞ KHOÁ KHẨN CẤP' : 'ĐÃ ĐẾN GIỜ') : 'Còn ' + hms(ex.t0 - now);
-  $('cd').style.color = S.released ? 'var(--green)' : '';
-  show('keyNo', !S.hasKey); show('keyYes', S.hasKey);
-  const list = Object.entries(S.rooms);
-  const cnt = k => list.filter(([, s]) => s.status === k).length;
-  const online = list.filter(([, s]) => s.lastSeen && now - s.lastSeen < 10000).length;
-  $('stats').innerHTML = [['Trực tuyến', online + '/' + list.length], ['Đã tải đề', list.filter(([, s]) => /chờ giờ|sẵn sàng|đang phát|tạm dừng|xong/.test(s.status)).length], ['Loa bật', list.filter(([, s]) => s.activated).length], ['Sẵn sàng', cnt('sẵn sàng phát')], ['Đang phát', cnt('đang phát')], ['Xong', cnt('đã phát xong')]]
-    .map(([k, v]) => `<div class="stat"><span class="mute small">${k}</span><b>${v}</b></div>`).join('');
-  const warn = ex && !S.hasKey ? (S.released ? '⚠ ĐÃ ĐẾN GIỜ nhưng chưa nạp khoá – các phòng đang chờ. Nạp khoá ngay!' : '⚠ Chưa nạp khoá – nhớ nạp trước giờ thi.') : '';
-  note('playNote', S.playAt ? (S.playAt > now ? `Lệnh phát: các phòng bắt đầu sau ${Math.ceil((S.playAt - now) / 1000)} giây…` : `Đã phát lệnh lúc ${new Date(S.playAt).toLocaleTimeString('vi-VN')}`) : warn);
-  $('playNote').className = 'note ' + (S.playAt ? 'info' : 'warn') + ($('playNote').textContent ? '' : ' hidden');
-  $('btnPlay').disabled = !S.released || !S.hasKey;
-  $('btnCancel').disabled = !(S.playAt && S.playAt > now);
-  $('btnRelease').disabled = !ex || S.released;
-  $('rows').innerHTML = list.map(([r, s]) => {
-    const ago = s.lastSeen ? Math.round((now - s.lastSeen) / 1000) : null, on = ago !== null && ago < 10;
-    return `<tr><td><b>${r}</b></td><td class="${on ? 'on' : 'off'}">${ago === null ? '○ chưa kết nối' : on ? '● trực tuyến' : '○ mất kết nối ' + ago + 's'}</td>
-      <td>${esc(s.status)}</td><td>${s.activated ? '✓' : '–'}</td><td>${s.dur ? mmss(s.pos) + ' / ' + mmss(s.dur) : ''}</td></tr>`;
-  }).join('');
+  const b = baseUrl();
+  $('urlK').textContent = b; $('urlG').textContent = b + '/g'; $('urlA').textContent = b + '/a';
+  $('kiosk').textContent = `"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" --kiosk --autoplay-policy=no-user-gesture-required ${b}/`;
+  show('tunWarn', !S.short);
+  note('linkMsg', S.short?.msg || '');
+  $('linkInfo').textContent = S.short ? `Đang dùng ${S.short.url}. Máy chủ tự báo địa chỉ mới mỗi lần bật truy cập từ xa.` : 'Chưa cài. Nhập địa chỉ và mã link để phiếu in ra có link không đổi.';
+  show('linkCard', S.local);
 }
 
-// ---------- Bước 1: mã hoá trong trình duyệt ----------
-const MIMES = { mp3: 'audio/mpeg', wav: 'audio/wav', m4a: 'audio/mp4', ogg: 'audio/ogg', aac: 'audio/aac' };
-function pickAudio(f) {
-  if (!f) return;
-  const ext = f.name.split('.').pop().toLowerCase();
-  if (!MIMES[ext] && !/^audio\//.test(f.type)) { note('setupErr', 'Chỉ nhận file âm thanh (mp3, wav, m4a, ogg).'); return; }
-  audioFile = f; note('setupErr', '');
-  $('fileInfo').textContent = `📄 ${f.name} · ${mb(f.size)}`; show('fileInfo', true);
-  const pv = $('preview'); if (pv.src) URL.revokeObjectURL(pv.src); pv.src = URL.createObjectURL(f); show('preview', true);
-  pv.onloadedmetadata = () => { $('fileInfo').textContent = `📄 ${f.name} · ${mb(f.size)} · dài ${mmss(pv.duration)}`; };
-  if (!$('title').value) $('title').value = f.name.replace(/\.[^.]+$/, '');
-}
-function dropZone(zone, input, cb) {
-  zone.onclick = () => input.click(); input.onchange = () => cb(input.files[0]);
-  zone.ondragover = e => { e.preventDefault(); zone.classList.add('over'); };
-  zone.ondragleave = () => zone.classList.remove('over');
-  zone.ondrop = e => { e.preventDefault(); zone.classList.remove('over'); cb(e.dataTransfer.files[0]); };
-}
-dropZone($('drop'), $('file'), pickAudio);
-
-const toB64 = u8 => { let s = ''; for (let i = 0; i < u8.length; i += 8192) s += String.fromCharCode(...u8.subarray(i, i + 8192)); return btoa(s); };
-function downloadKey(k) {
-  const t0 = new Date(k.t0);
-  const txt = `KHOÁ GIẢI MÃ ĐỀ NGHE – GIỮ BÍ MẬT\r\nKỳ thi: ${k.title}\r\nGiờ mở khoá: ${t0.toLocaleString('vi-VN')}\r\nTạo lúc: ${new Date().toLocaleString('vi-VN')}\r\n\r\nSáng ngày thi: mở Bảng điều khiển > Ngày thi > kéo thả file này vào ô "Nạp khoá".\r\n\r\nKEY:${k.key}\r\n`;
+// ---------- Khoá trường: tạo ngay trong trình duyệt, máy chủ chỉ nhận phần công khai ----------
+const b64 = u8 => { let s = ''; for (let i = 0; i < u8.length; i += 8192) s += String.fromCharCode(...u8.subarray(i, i + 8192)); return btoa(s); };
+const pem = (buf, label) => `-----BEGIN ${label}-----\n${b64(new Uint8Array(buf)).match(/.{1,64}/g).join('\n')}\n-----END ${label}-----\n`;
+function downloadKey(text) {
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([txt], { type: 'text/plain;charset=utf-8' }));
-  a.download = `KHOA-${k.title.replace(/[^\p{L}\p{N}]+/gu, '-').slice(0, 40)}-${t0.getFullYear()}${pad(t0.getMonth() + 1)}${pad(t0.getDate())}.txt`;
+  a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }));
+  a.download = 'KHOA-TRUONG-phat-bai-nghe.txt';
   document.body.appendChild(a); a.click(); a.remove();
 }
-
-$('btnSetup').onclick = async () => {
-  note('setupErr', '');
-  if (!audioFile) return note('setupErr', 'Chưa chọn file nghe.');
-  const title = $('title').value.trim() || 'Bài thi nghe';
-  if (!$('date').value || !$('time').value) return note('setupErr', 'Chưa chọn ngày và giờ mở khoá.');
-  const t0 = new Date(`${$('date').value}T${$('time').value}`);
-  if (isNaN(t0)) return note('setupErr', 'Ngày giờ không hợp lệ.');
-  const n = +$('nrooms').value; if (!(n >= 1 && n <= 200)) return note('setupErr', 'Số phòng từ 1 đến 200.');
-  if (t0 <= Date.now() && !confirm('Giờ mở khoá đã ở quá khứ – các phòng sẽ mở được ngay. Vẫn tiếp tục (để diễn tập)?')) return;
-  if (S.exam && !confirm(`Thay đề hiện tại "${S.exam.title}"? Mã phòng và khoá cũ sẽ hết hiệu lực.`)) return;
-  if (!window.crypto?.subtle) return note('setupErr', 'Trình duyệt không hỗ trợ mã hoá. Hãy mở bằng http://localhost:8080/admin trên máy chủ.');
-
-  $('btnSetup').disabled = true; show('setupProg', true);
-  const msg = t => $('setupMsg').textContent = t, bar = p => $('setupBar').style.width = p + '%';
+async function makeSchoolKey() {
+  note('schoolErr', '');
+  if (!window.crypto?.subtle) return note('schoolErr', 'Trình duyệt không hỗ trợ: hãy mở bằng http://localhost trên máy chủ hoặc địa chỉ https://.');
   try {
-    msg('Đang đọc file…'); bar(10);
-    const plain = await audioFile.arrayBuffer();
-    msg('Đang mã hoá (AES-256)…'); bar(30);
-    const raw = crypto.getRandomValues(new Uint8Array(32)), iv = crypto.getRandomValues(new Uint8Array(12));
-    const k = await crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt']);
-    const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, k, plain));
-    const enc = new Uint8Array(12 + ct.length); enc.set(iv); enc.set(ct, 12);
-    const ext = audioFile.name.split('.').pop().toLowerCase();
-    const mime = MIMES[ext] || audioFile.type;
-    lastKey = { key: toB64(raw), title, t0: t0.getTime() };
-    const sha = [...new Uint8Array(await crypto.subtle.digest('SHA-256', enc))].map(x => x.toString(16).padStart(2, '0')).join('');
-    const CH = 2 * 1048576;
-    for (let off = 0; off < enc.length; off += CH) {
-      msg(`Đang gửi bản mã hoá lên máy chủ… ${mb(Math.min(off + CH, enc.length))} / ${mb(enc.length)}`);
-      bar(40 + 55 * off / enc.length);
-      let tries = 0;
-      for (;;) {
-        try { await api('chunk', { q: `offset=${off}&total=${enc.length}`, body: new Blob([enc.subarray(off, off + CH)]) }); break; }
-        catch (e) { if (e.code || ++tries >= 3) throw e; await new Promise(r => setTimeout(r, 1000)); }   // lỗi mạng: thử lại 3 lần
-      }
-    }
-    msg('Đang tạo mã phòng…'); bar(97);
-    const q = new URLSearchParams({ t0: t0.toISOString(), mime, n, title, size: enc.length, sha256: sha }).toString();
-    S = await api('setup', { q, body: '' });
-    raw.fill(0);
-    bar(100); msg('Xong!');
+    const kp = await crypto.subtle.generateKey({ name: 'RSA-OAEP', modulusLength: 3072, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' }, true, ['encrypt', 'decrypt']);
+    const priv = pem(await crypto.subtle.exportKey('pkcs8', kp.privateKey), 'PRIVATE KEY');
+    const pub = pem(await crypto.subtle.exportKey('spki', kp.publicKey), 'PUBLIC KEY');
+    await api('school-key', { publicKey: pub });
+    lastKey = `KHOÁ TRƯỜNG – PHÁT BÀI NGHE – GIỮ BÍ MẬT\r\nTạo lúc: ${new Date().toLocaleString('vi-VN')}\r\nSáng ngày thi: mở trang admin > Ngày thi > kéo thả file này vào ô nạp khoá.\r\n\r\n${priv}`;
     downloadKey(lastKey);
-    show('setupCard', false); show('keyDone', true);
-    audioFile = null; $('file').value = ''; show('fileInfo', false); $('preview').removeAttribute('src'); show('preview', false);
-    render();
-  } catch (e) { note('setupErr', 'Lỗi: ' + (e.code ? e.message : NETMSG)); lastKey = null; }
-  finally { $('btnSetup').disabled = false; setTimeout(() => show('setupProg', false), 800); }
-};
-$('btnKeyAgain').onclick = () => lastKey && downloadKey(lastKey);
-['ck1', 'ck2', 'ck3'].forEach(id => $(id).onchange = () => $('btnKeyOk').disabled = !($('ck1').checked && $('ck2').checked));
-$('btnKeyOk').onclick = () => { lastKey = null; show('keyDone', false); show('setupCard', true); ['ck1', 'ck2', 'ck3'].forEach(id => $(id).checked = false); $('btnKeyOk').disabled = true; go('t2'); };
-window.addEventListener('beforeunload', e => { if (lastKey) { e.preventDefault(); e.returnValue = ''; } });
-async function delExam() {
-  if (!confirm('Xoá đề hiện tại khỏi máy chủ? Các phòng sẽ không phát được nữa.')) return;
-  await post('delete'); refresh();
+    show('schoolDone', true); refresh();
+  } catch (e) { note('schoolErr', 'Lỗi: ' + e.message); }
 }
+$('btnSchool').onclick = makeSchoolKey;
+$('btnSchoolNew').onclick = () => { if (confirm('Tạo khoá trường MỚI? Mọi bài đã đăng sẽ không mở được nữa và phải đăng lại.') && confirm('Xác nhận lần 2: tạo khoá mới?')) makeSchoolKey(); };
+$('btnKeyAgain').onclick = () => lastKey && downloadKey(lastKey);
+['ck1', 'ck2'].forEach(id => $(id).onchange = () => $('btnKeyOk').disabled = !($('ck1').checked && $('ck2').checked));
+$('btnKeyOk').onclick = () => { lastKey = null; show('schoolDone', false); ['ck1', 'ck2'].forEach(id => $(id).checked = false); $('btnKeyOk').disabled = true; refresh(); };
+window.addEventListener('beforeunload', e => { if (lastKey) { e.preventDefault(); e.returnValue = ''; } });
 
-// ---------- Bước 2: in phiếu ----------
+// ---------- Bảng bài nghe ----------
+$('examRows').onclick = async ev => {
+  const d = ev.target.dataset, find = id => S.exams.find(e => e.id === id);
+  if (d.sched) {
+    const e = find(d.sched); schedId = e.id; note('schedErr', '');
+    $('schedTitle').textContent = 'Xếp lịch – ' + e.title;
+    const t = e.t0 ? new Date(e.t0) : new Date(Date.now() + 86400000);
+    $('date').value = `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`;
+    $('time').value = e.t0 ? `${pad(t.getHours())}:${pad(t.getMinutes())}` : '08:00';
+    $('nrooms').value = Object.keys(e.codes).length || 20;
+    show('schedCard', true); $('schedCard').scrollIntoView({ behavior: 'smooth' });
+  }
+  if (d.codes) { codesId = d.codes; render(); $('codesCard').scrollIntoView({ behavior: 'smooth' }); }
+  if (d.del) {
+    const e = find(d.del);
+    if (confirm(`Xoá bài "${e.title}" của ${e.teacherName}? Mã phòng của bài này sẽ hết hiệu lực.`)) { picks.delete(e.id); if (codesId === e.id) codesId = null; act('delete', { id: e.id }); }
+  }
+};
+$('btnSchedX').onclick = () => { schedId = null; show('schedCard', false); };
+$('btnCodesX').onclick = () => { codesId = null; render(); };
+$('btnSched').onclick = async () => {
+  note('schedErr', '');
+  if (!$('date').value || !$('time').value) return note('schedErr', 'Chưa chọn ngày và giờ mở khoá.');
+  const t0 = new Date(`${$('date').value}T${$('time').value}`), n = +$('nrooms').value;
+  if (isNaN(t0)) return note('schedErr', 'Ngày giờ không hợp lệ.');
+  if (!(n >= 1 && n <= 200)) return note('schedErr', 'Số phòng từ 1 đến 200.');
+  if (t0 <= Date.now() && !confirm('Giờ mở khoá đã ở quá khứ – các phòng sẽ mở được ngay. Vẫn tiếp tục (để diễn tập)?')) return;
+  try { const id = schedId; await api('schedule', { id, t0: t0.toISOString(), n }); schedId = null; show('schedCard', false); codesId = id; await refresh(); }
+  catch (e) { note('schedErr', e.code ? e.message : 'Mất kết nối với máy chủ.'); }
+};
+
+// ---------- In phiếu ----------
 $('btnPrint').onclick = () => {
-  const base = S.tunnel.url, ex = S.exam;
-  const slips = Object.entries(S.codes).map(([r, c]) => `<div class="slip"><div class="r">PHÒNG ${r.slice(1)}</div><div class="t">${esc(ex.title)}</div>
+  const ex = S.exams.find(e => e.id === codesId); if (!ex) return;
+  const slips = Object.entries(ex.codes).map(([r, c]) => `<div class="slip"><div class="r">PHÒNG ${r.slice(1)}</div><div class="t">${esc(ex.title)}</div>
     <div>Mã truy cập:</div><div class="c">${c}</div>
-    ${base ? `<div class="l">Mở trên máy phòng thi:<br><b>${esc(base)}/?c=${c}</b></div>` : `<div class="l">Mở địa chỉ hội đồng cung cấp, nhập mã trên.</div>`}
+    ${roomLink(c) ? `<div class="l">Mở trên máy phòng thi:<br><b>${esc(roomLink(c))}</b></div>` : `<div class="l">Mở địa chỉ admin cung cấp, nhập mã trên.</div>`}
     <div class="h">Mở khoá lúc ${fmt(ex.t0)}. Sau khi vào: bấm “Thử loa”, để nguyên máy, chờ lệnh phát.</div></div>`).join('');
   const w = window.open('', '_blank');
   w.document.write(`<!doctype html><meta charset="utf-8"><title>Phiếu mã phòng</title><style>
@@ -394,45 +422,86 @@ $('btnPrint').onclick = () => {
   w.document.close();
 };
 
-// ---------- Bước 3: đường hầm ----------
-$('btnTunOn').onclick = async () => { await post('tunnel-start'); refresh(); };
-$('btnTunOff').onclick = async () => { if (confirm('Tắt truy cập từ xa? Các phòng sẽ mất kết nối, và lần bật sau địa chỉ sẽ đổi.')) { await post('tunnel-stop'); refresh(); } };
+// ---------- Ngày thi ----------
+async function loadKey(text) {
+  note('kErr', '');
+  const m = String(text).match(/-----BEGIN PRIVATE KEY-----[\s\S]+?-----END PRIVATE KEY-----/);
+  if (!m) return note('kErr', 'Không tìm thấy khoá trong file này.');
+  try { await api('key', { key: m[0] }); refresh(); } catch (e) { note('kErr', e.code ? e.message : 'Mất kết nối với máy chủ.'); }
+}
+const kz = $('kdrop');
+kz.onclick = () => $('kfile').click(); $('kfile').onchange = async () => { const f = $('kfile').files[0]; if (f) loadKey(await f.text()); $('kfile').value = ''; };
+kz.ondragover = e => { e.preventDefault(); kz.classList.add('over'); };
+kz.ondragleave = () => kz.classList.remove('over');
+kz.ondrop = async e => { e.preventDefault(); kz.classList.remove('over'); const f = e.dataTransfer.files[0]; if (f) loadKey(await f.text()); };
+$('btnUnkey').onclick = () => { if (confirm('Gỡ khoá? Các phòng chưa mở khoá sẽ không mở được cho đến khi nạp lại.')) act('unkey', {}); };
+$('playPicks').onchange = ev => { const id = ev.target.dataset.pick; if (id) { ev.target.checked ? picks.add(id) : picks.delete(id); render(); } };
+$('btnPlayMany').onclick = () => {
+  const list = S.exams.filter(e => picks.has(e.id) && e.released);
+  if (confirm(`Phát ĐỒNG LOẠT ${list.length} bài sau 5 giây?\n\n${list.map(e => '• ' + e.title).join('\n')}`)) act('play', { ids: list.map(e => e.id) });
+};
+$('btnCancelAll').onclick = () => act('cancel', { ids: S.exams.map(e => e.id) });
+$('liveCards').onclick = ev => {
+  const d = ev.target.dataset, find = id => S.exams.find(e => e.id === id);
+  if (d.play) {
+    const e = find(d.play), list = Object.values(e.rooms), ready = list.filter(s => s.status === 'sẵn sàng phát').length;
+    if (confirm(`Phát "${e.title}" ĐỒNG LOẠT sau 5 giây?\n\n${ready}/${list.length} phòng đang báo "sẵn sàng phát".`)) act('play', { ids: [e.id] });
+  }
+  if (d.cancel) act('cancel', { ids: [d.cancel] });
+  if (d.rel) {
+    const e = find(d.rel);
+    if (confirm(`Mở khoá "${e.title}" TRƯỚC giờ thi? Chỉ dùng khi có chỉ đạo.`) && confirm('Xác nhận lần 2: mở khoá ngay?')) act('release', { id: e.id });
+  }
+};
+
+// ---------- Tài khoản ----------
+$('btnUser').onclick = async () => {
+  note('uErr', ''); note('uDone', '');
+  try {
+    const d = await api('user-create', { name: $('uName').value, username: $('uLogin').value, role: $('uRole').value });
+    $('uName').value = $('uLogin').value = '';
+    note('uDone', `Đã tạo. Tên đăng nhập: ${d.username} · Mật khẩu: ${d.password} (chỉ hiện lần này, hãy chép lại).`);
+    refresh();
+  } catch (e) { note('uErr', e.code ? e.message : 'Mất kết nối với máy chủ.'); }
+};
+$('userRows').onclick = async ev => {
+  const d = ev.target.dataset, find = id => S.users.find(u => u.id === id);
+  if (d.reset) {
+    const u = find(d.reset);
+    if (!confirm(`Đặt lại mật khẩu cho ${u.name}?`)) return;
+    const r = await act('user-reset', { id: u.id });
+    if (r) { note('uDone', `Mật khẩu mới của ${r.username}: ${r.password} (chỉ hiện lần này, hãy chép lại).`); $('uDone').scrollIntoView({ behavior: 'smooth' }); }
+  }
+  if (d.udel) { const u = find(d.udel); if (confirm(`Xoá tài khoản ${u.name}? Các bài đã đăng vẫn được giữ.`)) act('user-delete', { id: u.id }); }
+};
+
+// ---------- Truy cập từ xa ----------
+$('btnTunOn').onclick = () => act('tunnel-start', {});
+$('btnTunOff').onclick = () => { if (confirm('Tắt truy cập từ xa? Giáo viên và các phòng sẽ mất kết nối, và lần bật sau địa chỉ sẽ đổi.')) act('tunnel-stop', {}); };
 async function copy(text, btn) { try { await navigator.clipboard.writeText(text); const o = btn.textContent; btn.textContent = '✓ Đã sao chép'; setTimeout(() => btn.textContent = o, 1500); } catch { prompt('Sao chép thủ công:', text); } }
-$('cpUrl').onclick = e => copy(S.tunnel.url, e.target);
+$('cpUrl').onclick = e => copy(baseUrl(), e.target);
+$('cpG').onclick = e => copy(baseUrl() + '/g', e.target);
+$('btnLink').onclick = async () => {
+  note('linkErr', '');
+  try { await api('link-set', { url: $('linkUrl').value, secret: $('linkSecret').value }); $('linkSecret').value = ''; refresh(); }
+  catch (e) { note('linkErr', e.code ? e.message : 'Mất kết nối với máy chủ.'); }
+};
 $('cpKiosk').onclick = e => copy($('kiosk').textContent, e.target);
 document.querySelectorAll('[data-copy]').forEach(b => b.onclick = () => copy(b.dataset.copy, b));
 
-// ---------- Bước 4: khoá & điều khiển ----------
-function parseKey(text) {
-  const m = String(text).match(/KEY:\s*([A-Za-z0-9+/]{43}=)/) || String(text).trim().match(/^([A-Za-z0-9+/]{43}=)$/);
-  return m && m[1];
-}
-async function loadKey(text) {
-  note('kErr', '');
-  const key = parseKey(text);
-  if (!key) return note('kErr', 'Không tìm thấy khoá trong file/chuỗi này.');
-  try { await post('key', { key }); $('kpaste').value = ''; refresh(); } catch (e) { note('kErr', e.message); }
-}
-dropZone($('kdrop'), $('kfile'), async f => f && loadKey(await f.text()));
-$('btnKPaste').onclick = () => loadKey($('kpaste').value);
-$('btnUnkey').onclick = async () => { if (confirm('Gỡ khoá? Các phòng chưa mở khoá sẽ không mở được cho đến khi nạp lại.')) { await post('unkey'); refresh(); } };
-$('btnPlay').onclick = async () => {
-  const list = Object.values(S.rooms), ready = list.filter(s => s.status === 'sẵn sàng phát').length;
-  if (confirm(`Phát bài nghe ĐỒNG LOẠT sau 5 giây?\n\n${ready}/${list.length} phòng đang báo "sẵn sàng phát".`)) { try { await post('play'); } catch (e) { alert(e.message); } refresh(); }
-};
-$('btnCancel').onclick = async () => { await post('cancel'); refresh(); };
-$('btnRelease').onclick = async () => {
-  if (confirm('Mở khoá TRƯỚC giờ thi cho tất cả các phòng? Chỉ dùng khi có chỉ đạo.') && confirm('Xác nhận lần 2: mở khoá ngay?')) { await post('release'); refresh(); }
-};
-
 // ---------- Đăng nhập từ xa ----------
-$('btnTok').onclick = () => { token = $('tok').value.trim(); sessionStorage.setItem('adminToken', token); refresh(); };
-$('tok').onkeydown = e => { if (e.key === 'Enter') $('btnTok').click(); };
+$('btnLogin').onclick = async () => {
+  note('loginErr', '');
+  try {
+    const r = await fetch('/api/t/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: $('un').value, password: $('pw').value }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) return note('loginErr', d.error || 'Lỗi đăng nhập');
+    if (d.role !== 'admin') return note('loginErr', 'Tài khoản này không phải admin. Giáo viên đăng bài ở địa chỉ /g.');
+    $('pw').value = ''; refresh();
+  } catch { note('loginErr', 'Không kết nối được máy chủ.'); }
+};
+$('pw').onkeydown = e => { if (e.key === 'Enter') $('btnLogin').click(); };
 
-// ---------- Khởi động ----------
-(() => {
-  const d = new Date(Date.now() + 86400000); $('date').value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; $('time').value = '08:00';
-  const off = -new Date().getTimezoneOffset(); $('tzInfo').textContent = `UTC${off >= 0 ? '+' : '−'}${pad(Math.abs(off) / 60 | 0)}:${pad(Math.abs(off) % 60)}`;
-})();
+(() => { const off = -new Date().getTimezoneOffset(); $('tzInfo').textContent = `UTC${off >= 0 ? '+' : '−'}${pad(Math.abs(off) / 60 | 0)}:${pad(Math.abs(off) % 60)}`; })();
 go(tab); refresh(); setInterval(refresh, 1000);
 </script></body></html>

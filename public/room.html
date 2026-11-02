@@ -48,19 +48,19 @@ audio{width:100%;margin-top:18px}.hidden{display:none}
 
 <script>
 const $ = id => document.getElementById(id);
-const fromUrl = new URLSearchParams(location.search).get('c');
+const fromUrl = (location.pathname.match(/^\/([A-Za-z0-9]{4})$/) || [])[1] || new URLSearchParams(location.search).get('c');
 let code = (fromUrl || localStorage.getItem('code') || '').toUpperCase().replace(/[^A-Z0-9]/g, ''), room = '';
 let offset = 0, T0 = 0, mime = 'audio/mpeg', sha = '', size = 0, encBuf = null;
 let unlocked = false, unlocking = false, lastTry = 0, activated = false, serverReleased = false;
 let handledPlayAt = null, currentPlayAt = null, status = 'đã đăng nhập', started = false;
 const player = $('player');
 const now = () => Date.now() + offset;
-const qs = () => `room=${encodeURIComponent(room)}&code=${encodeURIComponent(code)}`;
+const qs = () => `code=${encodeURIComponent(code)}`;
 const hex = b => [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('');
 const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
 function step(id, cls, text) { const e = $(id); e.className = cls; e.textContent = (cls === 'ok' ? '✓ ' : cls === 'err' ? '✗ ' : '○ ') + text; }
 function hms(ms) { const s = Math.max(0, Math.floor(ms / 1000)); const d = Math.floor(s / 86400); return (d ? d + 'n ' : '') + [s % 86400 / 3600 | 0, (s % 3600) / 60 | 0, s % 60].map(x => String(x).padStart(2, '0')).join(':'); }
-if (fromUrl) history.replaceState(null, '', location.pathname);   // không để mã nằm trên thanh địa chỉ
+if (fromUrl) history.replaceState(null, '', '/');   // không để mã nằm trên thanh địa chỉ
 
 // --- Lưu file MÃ HOÁ vào IndexedDB: tải lại trang / mất mạng vẫn còn ---
 function idb() { return new Promise((ok, no) => { const r = indexedDB.open('exam-audio', 1); r.onupgradeneeded = () => r.result.createObjectStore('f'); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); }); }
@@ -70,7 +70,7 @@ async function idbDel(k) { try { const db = await idb(); await new Promise(ok =>
 
 async function syncTime() {
   const t1 = Date.now(); const r = await (await fetch('/api/time', { cache: 'no-store' })).json(); const t2 = Date.now();
-  offset = r.now - (t1 + t2) / 2; if (r.t0) T0 = r.t0;
+  offset = r.now - (t1 + t2) / 2;
 }
 
 async function login() {
@@ -82,13 +82,13 @@ async function login() {
 }
 
 async function start(manual) {
-  if (!window.crypto || !crypto.subtle) { $('loginMsg').textContent = 'Trình duyệt không cho phép giải mã: phải mở bằng địa chỉ https:// do hội đồng cung cấp.'; return; }
+  if (!window.crypto || !crypto.subtle) { $('loginMsg').textContent = 'Trình duyệt không cho phép giải mã: phải mở bằng địa chỉ https:// do admin cung cấp.'; return; }
   let r;
   try { r = await fetch('/api/login?code=' + encodeURIComponent(code), { cache: 'no-store' }); }
   catch { $('loginMsg').textContent = 'Không kết nối được máy chủ. Kiểm tra mạng, thử lại.'; return; }
   const info = await r.json().catch(() => ({}));
   if (!r.ok) { $('loginMsg').textContent = info.error || 'Sai mã'; localStorage.removeItem('code'); $('login').classList.remove('hidden'); $('main').classList.add('hidden'); return; }
-  room = info.room; mime = info.mime; sha = info.sha256; size = info.size;
+  room = info.room; mime = info.mime; sha = info.sha256; size = info.size; T0 = info.t0;
   localStorage.setItem('code', code);
   $('login').classList.add('hidden'); $('main').classList.remove('hidden');
   $('title').textContent = 'Phòng ' + room.slice(1); $('examTitle').textContent = info.title;
@@ -140,7 +140,7 @@ async function unlock() {
     player.src = URL.createObjectURL(new Blob([plain], { type: mime }));   // chỉ nằm trong bộ nhớ
     player.classList.remove('hidden'); $('btnPlay').disabled = false; unlocked = true;
     step('s4', 'ok', 'Đã mở khoá – sẵn sàng phát'); $('countdown').textContent = 'SẴN SÀNG'; $('countdown').className = 'clock ready'; status = 'sẵn sàng phát';
-    $('msg').textContent = 'Chờ lệnh phát đồng loạt từ hội đồng (hoặc bấm Phát thủ công khi được chỉ đạo).';
+    $('msg').textContent = 'Chờ lệnh phát đồng loạt từ admin (hoặc bấm Phát thủ công khi được chỉ đạo).';
   } catch (e) { step('s4', 'err', 'Lỗi mở khoá: ' + e.message); }
   finally { unlocking = false; }
 }
@@ -148,15 +148,16 @@ async function unlock() {
 async function report() {
   try {
     const r = await fetch('/api/report', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ room, code, status, pos: player.currentTime || 0, dur: player.duration || 0, activated }) });
-    if (r.status === 403) { $('msg').textContent = 'Mã phòng không còn hiệu lực (hội đồng đã đổi đề). Đăng xuất và nhập mã mới.'; return; }
+      body: JSON.stringify({ code, status, pos: player.currentTime || 0, dur: player.duration || 0, activated }) });
+    if (r.status === 403) { $('msg').textContent = 'Mã phòng không còn hiệu lực (admin đã đổi đề). Đăng xuất và nhập mã mới.'; return; }
     if (!r.ok) return;
     const d = await r.json(); serverReleased = d.released; currentPlayAt = d.playAt;
+    if (d.t0 && d.t0 !== T0) { T0 = d.t0; $('t0txt').textContent = new Date(T0).toLocaleString('vi-VN'); }
     if (d.playAt && d.playAt !== handledPlayAt && unlocked) {
       handledPlayAt = d.playAt; const wait = d.playAt - now();
       if (wait > -15000) {
         $('msg').textContent = 'Đã nhận lệnh phát đồng loạt…';
-        setTimeout(() => { if (currentPlayAt === handledPlayAt) play(); else $('msg').textContent = 'Hội đồng đã huỷ lệnh phát.'; }, Math.max(0, wait));
+        setTimeout(() => { if (currentPlayAt === handledPlayAt) play(); else $('msg').textContent = 'Admin đã huỷ lệnh phát.'; }, Math.max(0, wait));
       } else $('msg').textContent = 'Lệnh phát đã quá 15 giây – bấm Phát thủ công nếu được chỉ đạo.';
     }
   } catch (e) { /* mất mạng tạm thời: file đã ở máy */ }
@@ -179,6 +180,6 @@ $('btnSpeaker').onclick = () => {   // bíp 1 giây; cú bấm này cũng cho ph
 $('btnPlay').onclick = () => { if (confirm('Phát bài nghe ngay tại phòng này?')) play(); };
 $('btnLogin').onclick = login;
 $('inCode').onkeydown = e => { if (e.key === 'Enter') login(); };
-$('btnLogout').onclick = () => { if (confirm('Đăng xuất khỏi phòng này?')) { localStorage.removeItem('code'); location.href = location.pathname; } };
+$('btnLogout').onclick = () => { if (confirm('Đăng xuất khỏi phòng này?')) { localStorage.removeItem('code'); location.href = '/'; } };
 if (code) { $('inCode').value = code; start(); } else $('inCode').focus();
 </script></body></html>

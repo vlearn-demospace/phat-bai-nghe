@@ -1,6 +1,13 @@
 # Phát bài nghe có khoá theo giờ
 
-Hệ thống phát bài thi nghe đồng loạt cho nhiều phòng thi. File nghe được mã hoá trước, các phòng tải về sớm, nhưng chỉ giải mã được khi đến giờ thi theo đồng hồ máy chủ.
+Hệ thống phát bài thi nghe đồng loạt cho nhiều phòng thi, nhiều bài thi cùng lúc. File nghe được mã hoá ngay trên máy giáo viên, các phòng tải về sớm, nhưng chỉ giải mã được khi đến giờ thi theo đồng hồ máy chủ.
+
+## Ba vai
+| Vai | Địa chỉ | Việc làm |
+|---|---|---|
+| Admin | `/a` | Tạo tài khoản, xem ai đã đăng bài, xếp giờ và số phòng, in phiếu mã, nạp khoá, phát đồng loạt |
+| Giáo viên | `/g` | Đăng nhập, đăng bài nghe của mình, xoá bài chưa xếp lịch |
+| Kỹ thuật viên | `/` hoặc `/K7M2` | Không cần tài khoản: nhập mã 4 ký tự trên phiếu hoặc mở link in sẵn |
 
 ## Yêu cầu
 - Windows + [Node.js LTS](https://nodejs.org) trên máy làm máy chủ (không cần cài thêm thư viện)
@@ -17,27 +24,45 @@ Hệ thống phát bài thi nghe đồng loạt cho nhiều phòng thi. File ngh
 Bấm đúp `CAP-NHAT.bat` (hoặc lối tắt *Cập nhật Phát bài nghe*). Dữ liệu kỳ thi (`data/`, `log.txt`) được giữ nguyên.
 Không cập nhật vào sáng ngày thi – cập nhật và diễn tập trước ít nhất một ngày.
 
-## Sử dụng
-Bấm đúp `MO-CHUONG-TRINH.bat` → trình duyệt mở Bảng điều khiển (`http://localhost:8080/admin`), làm theo 4 bước:
+Đề tạo ở bản cũ (một đề, `data/config.json`) không dùng được ở bản này: đăng lại qua trang giáo viên.
 
-1. **Chuẩn bị đề** – kéo thả file nghe, chọn giờ mở khoá, số phòng → nhận *file khoá*, cất vào USB.
-2. **Mã phòng** – in phiếu mã cho từng phòng.
-3. **Truy cập từ xa** – bật đường hầm HTTPS Cloudflare, lấy địa chỉ cho các phòng.
-4. **Ngày thi** – nạp file khoá từ USB, theo dõi các phòng, bấm *Phát đồng loạt*.
+## Sử dụng
+Bấm đúp `MO-CHUONG-TRINH.bat` → trình duyệt mở trang admin (`http://localhost:8080/a`). Trên chính máy chủ không cần đăng nhập.
+
+Chuẩn bị (một lần):
+1. **Bài nghe** – bấm *Tạo khoá trường*, chép file khoá vào USB.
+2. **Giáo viên** – tạo tài khoản cho từng giáo viên, gửi tên đăng nhập và mật khẩu.
+3. **Truy cập từ xa** – bật đường hầm HTTPS, gửi địa chỉ `/g` cho giáo viên.
+
+Mỗi kỳ thi:
+1. Giáo viên đăng bài ở `/g`.
+2. Admin vào **Bài nghe**, xếp giờ và số phòng cho từng bài, in phiếu mã cho kỹ thuật viên.
+3. Sáng ngày thi, vào **Ngày thi**, nạp file khoá từ USB (một lần cho mọi bài).
+4. Đến giờ, phát từng bài hoặc tích nhiều bài rồi phát cùng lúc.
 
 Máy phòng thi: mở link trên phiếu, bấm *Thử loa*, chờ lệnh.
 
+## Link ngắn cố định
+`https://lvcnghe.pages.dev` chuyển mọi đường dẫn về địa chỉ đường hầm hiện tại, ví dụ `lvcnghe.pages.dev/K7M2`, `lvcnghe.pages.dev/g`. Mỗi lần bật hoặc tắt truy cập từ xa, máy chủ tự báo địa chỉ mới; link có thể mất khoảng một phút mới trỏ đúng.
+
+- Mã code của trang chuyển hướng nằm ở `link/` (Cloudflare Pages, lưu địa chỉ trong KV). Triển khai: `wrangler pages deploy public --project-name lvcnghe --branch main` trong thư mục `link/`.
+- Máy chủ cần `data/link.json` (địa chỉ và mã link), file này không lên GitHub. Máy mới: chép file này sang, hoặc nhập ở thẻ *Truy cập từ xa* trên trang admin. Không có file này thì phiếu in dùng địa chỉ trycloudflare dài.
+
 ## Bảo mật
-- File nghe gốc được mã hoá AES-256-GCM **ngay trong trình duyệt**; máy chủ chỉ lưu bản mã hoá.
-- Khoá giải mã chỉ nằm trong bộ nhớ máy chủ (không ghi đĩa), chỉ cấp cho phòng khi đã đến giờ.
-- Thao tác chuẩn bị đề, bật/tắt truy cập từ xa chỉ làm được trên chính máy chủ; truy cập từ máy khác phải có mã quản trị.
+- File nghe gốc được mã hoá AES-256-GCM **ngay trong trình duyệt giáo viên**; máy chủ chỉ lưu bản mã hoá.
+- Khoá của từng bài được bọc bằng khoá công khai của trường (RSA-OAEP). Máy chủ chỉ giữ khoá riêng của trường trong bộ nhớ sau khi admin nạp, không ghi đĩa, và chỉ cấp khoá của bài cho phòng khi đã đến giờ.
+- Mất file khoá trường thì các bài chưa thi phải đăng lại. Tạo khoá mới cũng vậy.
+- Mật khẩu lưu dạng băm scrypt. Giáo viên chỉ thấy bài của mình và không thấy mã phòng.
+- Bật/tắt truy cập từ xa chỉ làm được trên chính máy chủ; admin từ máy khác phải đăng nhập tài khoản admin.
 - Mọi diễn biến ghi vào `log.txt`. Thư mục `data/`, `log.txt` và file khoá đã được loại khỏi git.
 
 ## Cấu trúc
 ```
 server.js            máy chủ (Node.js thuần)
-public/admin.html    bảng điều khiển hội đồng
-public/room.html     trang máy phòng thi
+public/admin.html    trang admin (/a)
+public/teacher.html  trang giáo viên (/g)
+public/room.html     trang máy phòng thi (/ và /<mã>)
+link/                trang chuyển hướng lvcnghe.pages.dev
 MO-CHUONG-TRINH.bat  file khởi chạy trên Windows
 CAP-NHAT.bat         lấy bản mới nhất từ GitHub
 CAI-DAT-MAY-MOI.bat  cài đặt trọn gói trên máy mới

@@ -1,28 +1,42 @@
 // server.js – Phát bài nghe có khoá theo giờ. Chỉ cần Node.js, không cần thư viện ngoài.
-// Mọi thao tác làm trên trang web: http://localhost:8080/admin
+// 3 vai: admin (/a), giáo viên (/g), kỹ thuật viên (/ hoặc /<mã phòng>).
 const http = require('http'), fs = require('fs'), path = require('path'), crypto = require('crypto');
 const { spawn, exec } = require('child_process');
 
 const PORT = +process.env.PORT || 8080;
 const DATA = path.join(__dirname, 'data');
-const CFG_FILE = path.join(DATA, 'config.json');
-const ENC_FILE = path.join(DATA, 'exam.enc');
+const EXAMS_DIR = path.join(DATA, 'exams');
+const EXAMS_FILE = path.join(DATA, 'exams.json');
+const USERS_FILE = path.join(DATA, 'users.json');
+const SCHOOL_FILE = path.join(DATA, 'school.json');
 const LOG_FILE = path.join(__dirname, 'log.txt');
-fs.mkdirSync(DATA, { recursive: true });
+fs.mkdirSync(EXAMS_DIR, { recursive: true });
 
-let cfg = null;
-try { if (fs.existsSync(CFG_FILE) && fs.existsSync(ENC_FILE)) cfg = JSON.parse(fs.readFileSync(CFG_FILE, 'utf8')); } catch { cfg = null; }
-let examKey = null;                    // khoá giải mã CHỈ nằm trong RAM, không ghi ra đĩa
-let forceRelease = false, playAt = null, state = {};
+const readJson = (f, dflt) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return dflt; } };
+function writeJson(f, obj) { const t = f + '.tmp'; fs.writeFileSync(t, JSON.stringify(obj, null, 2)); fs.renameSync(t, f); }
+
+let exams = readJson(EXAMS_FILE, []);     // [{ id, title, teacherId, teacherName, mime, size, sha256, dur, wrappedKey, keyId, uploadedAt, t0, rooms }]
+let users = readJson(USERS_FILE, []);     // [{ id, name, username, role, salt, hash, createdAt }]
+let school = readJson(SCHOOL_FILE, null); // { publicKey, keyId, createdAt } – chỉ có khoá công khai
+let masterKey = null;                     // khoá riêng của trường CHỈ nằm trong RAM, không ghi ra đĩa
+const live = {};                          // trạng thái theo bài, chỉ trong RAM: { force, playAt, rooms }
+const sessions = new Map();               // mã phiên -> { userId, exp }
 const tunnel = { proc: null, status: 'off', url: '', msg: '' };
-const fails = {};                      // chống dò mã: đếm lần nhập sai theo IP
+const fails = {};                         // chống dò mã: đếm lần nhập sai theo IP
+const SESSION_MS = 30 * 86400000;
 
-function resetRooms() {
-  state = {};
-  if (cfg) for (const r of Object.keys(cfg.rooms))
-    state[r] = { status: 'chưa kết nối', lastSeen: 0, pos: 0, dur: 0, activated: false, ip: '' };
+const saveExams = () => writeJson(EXAMS_FILE, exams);
+const saveUsers = () => writeJson(USERS_FILE, users);
+const encFile = id => path.join(EXAMS_DIR, id + '.enc');
+const findExam = id => exams.find(e => e.id === id);
+
+function liveOf(e) {
+  const l = live[e.id] || (live[e.id] = { force: false, playAt: null, rooms: {} });
+  for (const r of Object.keys(e.rooms || {}))
+    if (!l.rooms[r]) l.rooms[r] = { status: 'chưa kết nối', lastSeen: 0, pos: 0, dur: 0, activated: false, ip: '' };
+  for (const r of Object.keys(l.rooms)) if (!e.rooms || !e.rooms[r]) delete l.rooms[r];
+  return l;
 }
-resetRooms();
 
 function log(msg) {
   const line = `${new Date().toLocaleString('vi-VN')}  ${msg}\n`;
@@ -35,11 +49,44 @@ function same(a, b) {
 }
 const ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';           // bỏ I, O, 0, 1 cho dễ đọc
 const genCode = n => [...crypto.randomBytes(n)].map(x => ALPHA[x % 32]).join('');
+const CODE_LEN = 4;                                          // mã phòng ngắn để nhập tay và để link ngắn
 const norm = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-const T0 = () => cfg ? Date.parse(cfg.t0) : Infinity;
-const released = () => !!cfg && (forceRelease || Date.now() >= T0());   // dùng GIỜ MÁY CHỦ
-const roomOk = (room, code) => !!cfg && Object.prototype.hasOwnProperty.call(cfg.rooms, room) && same(norm(code), cfg.rooms[room]);
-const roomByCode = code => cfg && Object.keys(cfg.rooms).find(r => same(norm(code), cfg.rooms[r]));
+const released = e => !!e.t0 && (liveOf(e).force || Date.now() >= e.t0);   // dùng GIỜ MÁY CHỦ
+function findRoom(code) {
+  const c = norm(code);
+  if (c.length !== CODE_LEN) return null;
+  for (const e of exams) for (const [room, v] of Object.entries(e.rooms || {})) if (same(c, v)) return { exam: e, room };
+  return null;
+}
+function newCode() {
+  const used = new Set(exams.flatMap(e => Object.values(e.rooms || {})));
+  let c; do c = genCode(CODE_LEN); while (used.has(c));
+  return c;
+}
+
+// ---------- Tài khoản ----------
+const hashPw = (pw, salt) => crypto.scryptSync(String(pw), salt, 32).toString('hex');
+function createUser(name, username, role, password) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const u = { id: crypto.randomBytes(6).toString('hex'), name, username, role, salt, hash: hashPw(password, salt), createdAt: Date.now() };
+  users.push(u); saveUsers();
+  return u;
+}
+function setPassword(u, password) { u.salt = crypto.randomBytes(16).toString('hex'); u.hash = hashPw(password, u.salt); saveUsers(); }
+const genPassword = () => genCode(8);
+const publicUser = u => ({ id: u.id, name: u.name, username: u.username, role: u.role, createdAt: u.createdAt, examCount: exams.filter(e => e.teacherId === u.id).length });
+
+function cookie(req, name) {
+  const m = (req.headers.cookie || '').match(new RegExp('(?:^|;\\s*)' + name + '=([^;]+)'));
+  return m ? m[1] : '';
+}
+function currentUser(req) {
+  const t = cookie(req, 's'), s = t && sessions.get(t);
+  if (!s) return null;
+  if (s.exp < Date.now()) { sessions.delete(t); return null; }
+  return users.find(u => u.id === s.userId) || null;
+}
+function endSessionsOf(userId) { for (const [t, s] of sessions) if (s.userId === userId) sessions.delete(t); }
 
 // "Máy chủ" = mở trang ngay trên máy này qua localhost, không đi qua đường hầm Cloudflare
 function isLocal(req) {
@@ -50,12 +97,18 @@ function isLocal(req) {
 }
 function blocked(ip) { const f = fails[ip]; return f && f.n >= 20 && Date.now() - f.t < 10 * 60000; }
 function fail(ip) { const f = fails[ip] || (fails[ip] = { n: 0, t: 0 }); if (Date.now() - f.t > 10 * 60000) f.n = 0; f.n++; f.t = Date.now(); }
+// Trang web lạ không được gửi lệnh tới máy chủ qua trình duyệt của người dùng
+function sameOrigin(req) {
+  const o = req.headers.origin;
+  if (!o) return true;
+  try { return new URL(o).host === req.headers.host; } catch { return false; }
+}
 
-function send(res, code, obj) {
-  res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+function send(res, code, obj, headers = {}) {
+  res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...headers });
   res.end(JSON.stringify(obj));
 }
-function readJson(req, limit = 10000) {
+function readJsonBody(req, limit = 10000) {
   return new Promise(ok => {
     let d = '';
     req.on('data', c => { d += c; if (d.length > limit) req.destroy(); });
@@ -69,7 +122,7 @@ function page(res, file) {
 }
 
 // Nhận file đề ĐÃ MÃ HOÁ từ trình duyệt theo từng phần nhỏ (trình duyệt tự mã hoá, máy chủ không thấy file gốc)
-const TMP_FILE = path.join(DATA, 'upload.tmp');
+const tmpFile = userId => path.join(DATA, `upload-${userId}.tmp`);
 function readBody(req, limit) {   // luôn đọc HẾT thân yêu cầu rồi mới trả lời → trình duyệt nhận được thông báo lỗi thật
   return new Promise((ok, no) => {
     const parts = []; let size = 0, over = false;
@@ -78,50 +131,100 @@ function readBody(req, limit) {   // luôn đọc HẾT thân yêu cầu rồi m
     req.on('error', no);
   });
 }
-async function receiveChunk(req, q) {
-  const body = await readBody(req, 9 * 1048576);
+async function receiveChunk(req, q, user) {
+  const body = await readBody(req, 9 * 1048576), tmp = tmpFile(user.id);
   const offset = parseInt(q.offset);
   if (!(offset >= 0)) throw new Error('Thiếu vị trí phần dữ liệu');
-  if (offset === 0) { fs.writeFileSync(TMP_FILE, body); return body.length; }
-  const cur = fs.existsSync(TMP_FILE) ? fs.statSync(TMP_FILE).size : -1;
-  if (cur !== offset) throw new Error(`Dữ liệu gửi lên bị lệch (máy chủ có ${cur}, trình duyệt gửi từ ${offset}) – bấm lại nút Mã hoá`);
+  if (offset === 0) { fs.writeFileSync(tmp, body); return body.length; }
+  const cur = fs.existsSync(tmp) ? fs.statSync(tmp).size : -1;
+  if (cur !== offset) throw new Error(`Dữ liệu gửi lên bị lệch (máy chủ có ${cur}, trình duyệt gửi từ ${offset}) – bấm đăng lại`);
   if (cur + body.length > 500 * 1048576) throw new Error('File quá lớn (tối đa 500 MB)');
-  fs.appendFileSync(TMP_FILE, body);
+  fs.appendFileSync(tmp, body);
   return cur + body.length;
 }
-async function finishExam(q) {
-  const t0 = Date.parse(q.t0), n = Math.min(Math.max(parseInt(q.n) || 20, 1), 200);
-  if (isNaN(t0)) throw new Error('Giờ thi không hợp lệ');
-  if (!/^audio\/[\w.+-]+$/.test(q.mime || '')) throw new Error('Định dạng âm thanh không hợp lệ: ' + q.mime);
-  if (!fs.existsSync(TMP_FILE)) throw new Error('Máy chủ chưa nhận được file – bấm lại nút Mã hoá');
-  const size = fs.statSync(TMP_FILE).size;
-  if (size !== parseInt(q.size)) throw new Error(`File nhận được không đủ (${size}/${q.size} byte) – bấm lại nút Mã hoá`);
+async function finishUpload(b, user) {
+  const tmp = tmpFile(user.id);
+  if (!school) throw new Error('Admin chưa tạo khoá trường');
+  if (b.keyId !== school.keyId) throw new Error('Khoá trường vừa đổi – tải lại trang rồi đăng lại');
+  if (!/^audio\/[\w.+-]+$/.test(b.mime || '')) throw new Error('Định dạng âm thanh không hợp lệ: ' + b.mime);
+  if (!/^[A-Za-z0-9+/=]{100,2000}$/.test(b.wrappedKey || '')) throw new Error('Khoá của bài không hợp lệ');
+  if (!fs.existsSync(tmp)) throw new Error('Máy chủ chưa nhận được file – bấm đăng lại');
+  const size = fs.statSync(tmp).size;
+  if (size !== parseInt(b.size)) throw new Error(`File nhận được không đủ (${size}/${b.size} byte) – bấm đăng lại`);
   const sha256 = await new Promise((ok, no) => {
     const h = crypto.createHash('sha256');
-    fs.createReadStream(TMP_FILE).on('data', c => h.update(c)).on('end', () => ok(h.digest('hex'))).on('error', no);
+    fs.createReadStream(tmp).on('data', c => h.update(c)).on('end', () => ok(h.digest('hex'))).on('error', no);
   });
-  if (q.sha256 && q.sha256 !== sha256) throw new Error('File nhận được bị sai lệch – bấm lại nút Mã hoá');
-  try { fs.unlinkSync(ENC_FILE); } catch {}                   // Windows: xoá file cũ trước rồi mới đổi tên
-  try { fs.renameSync(TMP_FILE, ENC_FILE); } catch { fs.copyFileSync(TMP_FILE, ENC_FILE); try { fs.unlinkSync(TMP_FILE); } catch {} }
-  const rooms = {}, used = new Set();
-  for (let i = 1; i <= n; i++) { let c; do c = genCode(6); while (used.has(c)); used.add(c); rooms['P' + String(i).padStart(2, '0')] = c; }
-  cfg = { title: String(q.title || 'Bài thi nghe').slice(0, 120), t0: new Date(t0).toISOString(), mime: q.mime,
-    size, sha256, adminToken: genCode(10), createdAt: new Date().toISOString(), rooms };
-  fs.writeFileSync(CFG_FILE, JSON.stringify(cfg, null, 2));
-  examKey = null; forceRelease = false; playAt = null; resetRooms();
+  if (b.sha256 && b.sha256 !== sha256) throw new Error('File nhận được bị sai lệch – bấm đăng lại');
+  const id = crypto.randomBytes(6).toString('hex');
+  try { fs.renameSync(tmp, encFile(id)); } catch { fs.copyFileSync(tmp, encFile(id)); try { fs.unlinkSync(tmp); } catch {} }
+  const e = { id, title: String(b.title || 'Bài thi nghe').trim().slice(0, 120) || 'Bài thi nghe', teacherId: user.id, teacherName: user.name,
+    mime: b.mime, size, sha256, dur: +b.dur || 0, wrappedKey: b.wrappedKey, keyId: school.keyId, uploadedAt: Date.now(), t0: null, rooms: {} };
+  exams.push(e); saveExams();
+  return e;
+}
+function deleteExam(e) {
+  try { fs.unlinkSync(encFile(e.id)); } catch {}
+  exams = exams.filter(x => x !== e); delete live[e.id]; saveExams();
 }
 
-// Thử giải mã để chắc chắn khoá đúng với đề hiện tại
-function checkKey(b64) {
-  const key = Buffer.from(String(b64 || ''), 'base64');
-  if (key.length !== 32) return 'Khoá không đúng định dạng';
+// Admin xếp lịch: giữ mã các phòng đã có để phiếu đã in vẫn dùng được
+function schedule(e, t0, n) {
+  const old = e.rooms || {};
+  e.rooms = {};
+  for (let i = 1; i <= n; i++) { const r = 'P' + String(i).padStart(2, '0'); if (old[r]) e.rooms[r] = old[r]; }
+  for (let i = 1; i <= n; i++) { const r = 'P' + String(i).padStart(2, '0'); if (!e.rooms[r]) e.rooms[r] = newCode(); }
+  e.rooms = Object.fromEntries(Object.entries(e.rooms).sort(([a], [b]) => a.localeCompare(b)));
+  e.t0 = t0; saveExams();
+  liveOf(e);
+}
+
+// ---------- Khoá trường ----------
+function unwrapKey(e) {
+  if (!masterKey || e.keyId !== school?.keyId) return null;
+  try { return crypto.privateDecrypt({ key: masterKey, padding: crypto.constants.RSA_PKCS1_OAEP_PADDING, oaepHash: 'sha256' }, Buffer.from(e.wrappedKey, 'base64')); }
+  catch { return null; }
+}
+// Thử giải mã để chắc chắn bài này mở được
+function checkExam(e) {
+  const key = unwrapKey(e);
+  if (!key || key.length !== 32) return false;
   try {
-    const enc = fs.readFileSync(ENC_FILE);
+    const enc = fs.readFileSync(encFile(e.id));
     const d = crypto.createDecipheriv('aes-256-gcm', key, enc.subarray(0, 12));
     d.setAuthTag(enc.subarray(enc.length - 16));
     d.update(enc.subarray(12, enc.length - 16)); d.final();
-    return null;
-  } catch { return 'Khoá không khớp với đề hiện tại'; }
+    return true;
+  } catch { return false; }
+}
+let badExams = [];
+function loadMasterKey(pem) {
+  if (!school) return 'Chưa tạo khoá trường';
+  let priv;
+  try { priv = crypto.createPrivateKey(pem); } catch { return 'File này không phải khoá trường'; }
+  const pub = crypto.createPublicKey(priv).export({ type: 'spki', format: 'pem' });
+  if (String(pub).replace(/\s/g, '') !== school.publicKey.replace(/\s/g, '')) return 'Khoá này không khớp với khoá trường hiện tại';
+  masterKey = priv;
+  badExams = exams.filter(e => !checkExam(e)).map(e => e.id);
+  return null;
+}
+
+// ---------- Link ngắn cố định (thư mục link/): báo địa chỉ đường hầm hiện tại, tự thử lại nếu mất mạng ----------
+const LINK_FILE = path.join(DATA, 'link.json');
+let link = readJson(LINK_FILE, null);     // { url, secret } – file này không lên GitHub
+const linkState = { ok: false, msg: '', timer: null };
+async function publishLink(url) {
+  clearTimeout(linkState.timer);
+  if (!link) return;
+  try {
+    const r = await fetch(link.url + '/_set', { method: 'POST', headers: { Authorization: 'Bearer ' + link.secret, 'Content-Type': 'application/json' }, body: JSON.stringify({ url }), signal: AbortSignal.timeout(10000) });
+    if (!r.ok) throw new Error(r.status === 403 ? 'sai mã link' : 'lỗi ' + r.status);
+    Object.assign(linkState, { ok: !!url, msg: '' });
+    log(url ? `Link ngắn ${link.url} trỏ về ${url}` : `Link ngắn ${link.url} đã tắt`);
+  } catch (e) {
+    Object.assign(linkState, { ok: false, msg: 'Chưa cập nhật được link ngắn: ' + e.message });
+    if (e.message !== 'sai mã link' && tunnel.url === (url || '')) linkState.timer = setTimeout(() => publishLink(url), 15000);
+  }
 }
 
 function startTunnel() {
@@ -136,26 +239,29 @@ function startTunnel() {
   tunnel.proc = p;
   const scan = d => {
     const m = String(d).match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/);
-    if (m && !tunnel.url) { Object.assign(tunnel, { status: 'on', url: m[0], msg: '' }); log('Truy cập từ xa: ' + m[0]); }
+    if (m && !tunnel.url) { Object.assign(tunnel, { status: 'on', url: m[0], msg: '' }); log('Truy cập từ xa: ' + m[0]); publishLink(m[0]); }
   };
   p.stdout.on('data', scan); p.stderr.on('data', scan);
   p.on('error', e => { tunnel.proc = null; Object.assign(tunnel, e.code === 'ENOENT' ? { status: 'missing', msg: 'Chưa cài cloudflared' } : { status: 'error', msg: e.message }); });
-  p.on('exit', () => { if (tunnel.proc === p) { tunnel.proc = null; if (tunnel.status !== 'missing') Object.assign(tunnel, { status: 'off', url: '', msg: tunnel.status === 'on' ? 'Đường hầm đã đóng' : 'Không mở được đường hầm' }); } });
+  p.on('exit', () => { if (tunnel.proc === p) { tunnel.proc = null; if (tunnel.status !== 'missing') { const was = tunnel.status === 'on'; Object.assign(tunnel, { status: 'off', url: '', msg: was ? 'Đường hầm đã đóng' : 'Không mở được đường hầm' }); if (was) publishLink(null); } } });
 }
-function stopTunnel() { if (tunnel.proc) { const p = tunnel.proc; tunnel.proc = null; p.kill(); } Object.assign(tunnel, { status: 'off', url: '', msg: '' }); }
-process.on('exit', stopTunnel);
+function stopTunnel() { const had = !!tunnel.url; if (tunnel.proc) { const p = tunnel.proc; tunnel.proc = null; p.kill(); } Object.assign(tunnel, { status: 'off', url: '', msg: '' }); if (had) publishLink(null); }
+process.on('exit', () => { if (tunnel.proc) tunnel.proc.kill(); });
 process.on('uncaughtException', e => log('LỖI KHÔNG MONG ĐỢI (máy chủ vẫn chạy): ' + (e && e.stack || e)));
 process.on('unhandledRejection', e => log('LỖI KHÔNG MONG ĐỢI (máy chủ vẫn chạy): ' + (e && e.stack || e)));
 process.on('SIGINT', () => process.exit());
 
-function adminStatus(local) {
-  return {
-    now: Date.now(), local, configured: !!cfg,
-    exam: cfg && { title: cfg.title, t0: T0(), mime: cfg.mime, size: cfg.size, createdAt: cfg.createdAt, roomCount: Object.keys(cfg.rooms).length },
-    codes: cfg ? cfg.rooms : {}, adminToken: local && cfg ? cfg.adminToken : undefined,
-    hasKey: !!examKey, released: released(), forceRelease, playAt, rooms: state,
-    tunnel: { status: tunnel.status, url: tunnel.url, msg: tunnel.msg }
-  };
+function examForAdmin(e) {
+  const l = liveOf(e);
+  return { id: e.id, title: e.title, teacherName: e.teacherName, teacherId: e.teacherId, mime: e.mime, size: e.size, dur: e.dur, uploadedAt: e.uploadedAt,
+    t0: e.t0, codes: e.rooms || {}, released: released(e), force: l.force, playAt: l.playAt, rooms: l.rooms,
+    oldKey: e.keyId !== school?.keyId, bad: badExams.includes(e.id) };
+}
+function adminStatus(req, user) {
+  const local = isLocal(req);
+  return { now: Date.now(), local, user: user ? { name: user.name } : { name: 'Máy chủ' }, hasSchoolKey: !!school, schoolKeyAt: school?.createdAt || null,
+    hasKey: !!masterKey, exams: exams.map(examForAdmin), users: users.map(publicUser), tunnel: { status: tunnel.status, url: tunnel.url, msg: tunnel.msg },
+    short: link ? { url: link.url, ok: linkState.ok, msg: linkState.msg } : null };
 }
 
 http.createServer(async (req, res) => {
@@ -164,94 +270,200 @@ http.createServer(async (req, res) => {
   const ip = req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
   try {
     if (p === '/') return page(res, 'room.html');
-    if (p === '/admin') return page(res, 'admin.html');
-    if (p === '/api/time') return send(res, 200, { now: Date.now(), t0: cfg ? T0() : null });
+    if (p === '/a') return page(res, 'admin.html');
+    if (p === '/g') return page(res, 'teacher.html');
+    if (p === '/admin') { res.writeHead(302, { Location: '/a' }); return res.end(); }
+    if (new RegExp(`^/[A-Za-z0-9]{${CODE_LEN}}$`).test(p)) return page(res, 'room.html');   // link ngắn của phòng: /K7M2
+    if (p === '/api/time') return send(res, 200, { now: Date.now() });
+    if (req.method === 'POST' && !sameOrigin(req)) { req.resume(); return send(res, 403, { error: 'Yêu cầu không hợp lệ' }); }
 
-    // ---------- Máy phòng thi ----------
-    if (p.startsWith('/api/') && !p.startsWith('/api/admin') && blocked(ip)) return send(res, 429, { error: 'Nhập sai quá nhiều lần, thử lại sau 10 phút' });
+    // ---------- Kỹ thuật viên: chỉ cần mã phòng ----------
+    if (p.startsWith('/api/') && !p.startsWith('/api/admin') && !p.startsWith('/api/t/') && blocked(ip)) return send(res, 429, { error: 'Nhập sai quá nhiều lần, thử lại sau 10 phút' });
 
     if (p === '/api/login') {
-      if (!cfg) return send(res, 503, { error: 'Hội đồng chưa chuẩn bị đề' });
-      const room = roomByCode(q.code);
-      if (!room) { fail(ip); log(`Đăng nhập SAI từ ${ip}`); return send(res, 403, { error: 'Sai mã truy cập' }); }
-      log(`${room} đăng nhập từ ${ip}`);
-      return send(res, 200, { room, title: cfg.title, mime: cfg.mime, sha256: cfg.sha256, size: cfg.size });
+      const f = findRoom(q.code);
+      if (!f) { fail(ip); log(`Đăng nhập SAI từ ${ip}`); return send(res, 403, { error: 'Sai mã truy cập' }); }
+      log(`${f.exam.title} / ${f.room} đăng nhập từ ${ip}`);
+      return send(res, 200, { room: f.room, title: f.exam.title, mime: f.exam.mime, sha256: f.exam.sha256, size: f.exam.size, t0: f.exam.t0 });
     }
     if (p === '/api/audio') {
-      if (!roomOk(q.room, q.code)) { fail(ip); return send(res, 403, { error: 'Sai mã' }); }
-      log(`${q.room} tải file đề (mã hoá)`);
-      res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Content-Length': fs.statSync(ENC_FILE).size, 'Cache-Control': 'no-store' });
-      return fs.createReadStream(ENC_FILE).pipe(res);
+      const f = findRoom(q.code);
+      if (!f) { fail(ip); return send(res, 403, { error: 'Sai mã' }); }
+      log(`${f.exam.title} / ${f.room} tải file đề (mã hoá)`);
+      res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Content-Length': fs.statSync(encFile(f.exam.id)).size, 'Cache-Control': 'no-store' });
+      return fs.createReadStream(encFile(f.exam.id)).pipe(res);
     }
     if (p === '/api/key') {
-      if (!roomOk(q.room, q.code)) { fail(ip); return send(res, 403, { error: 'Sai mã' }); }
-      if (!released()) { log(`${q.room} xin khoá TRƯỚC GIỜ – từ chối`); return send(res, 403, { error: 'Chưa đến giờ' }); }
-      if (!examKey) return send(res, 503, { error: 'Hội đồng chưa nạp khoá' });
-      log(`${q.room} nhận khoá`);
-      return send(res, 200, { key: examKey });
+      const f = findRoom(q.code);
+      if (!f) { fail(ip); return send(res, 403, { error: 'Sai mã' }); }
+      if (!released(f.exam)) { log(`${f.exam.title} / ${f.room} xin khoá TRƯỚC GIỜ – từ chối`); return send(res, 403, { error: 'Chưa đến giờ' }); }
+      const key = unwrapKey(f.exam);
+      if (!key) return send(res, 503, { error: masterKey ? 'Bài này không mở được – báo admin' : 'Admin chưa nạp khoá' });
+      log(`${f.exam.title} / ${f.room} nhận khoá`);
+      return send(res, 200, { key: key.toString('base64') });
     }
     if (p === '/api/report' && req.method === 'POST') {
-      const b = await readJson(req);
-      if (!roomOk(b.room, b.code)) return send(res, 403, {});
-      const s = state[b.room], st = String(b.status || '').slice(0, 60);
-      if (s.status !== st) log(`${b.room}: ${st}`);
+      const b = await readJsonBody(req), f = findRoom(b.code);
+      if (!f) return send(res, 403, {});
+      const l = liveOf(f.exam), s = l.rooms[f.room], st = String(b.status || '').slice(0, 60);
+      if (s.status !== st) log(`${f.exam.title} / ${f.room}: ${st}`);
       Object.assign(s, { status: st, pos: +b.pos || 0, dur: +b.dur || 0, activated: !!b.activated, lastSeen: Date.now(), ip });
-      return send(res, 200, { playAt, released: released(), title: cfg.title });
+      return send(res, 200, { playAt: l.playAt, released: released(f.exam), title: f.exam.title, t0: f.exam.t0 });
     }
 
-    // ---------- Hội đồng ----------
-    if (p.startsWith('/api/admin/')) {
-      const local = isLocal(req);
-      if (!local && !(cfg && same(norm(q.token), cfg.adminToken))) return send(res, 403, { error: 'Sai mã quản trị' });
-      const a = p.slice(11), post = req.method === 'POST';
-      const localOnly = () => { send(res, 403, { error: 'Thao tác này chỉ làm được trên máy chủ' }); };
+    // ---------- Đăng nhập tài khoản ----------
+    if (p === '/api/t/login' && req.method === 'POST') {
+      if (blocked(ip)) return send(res, 429, { error: 'Nhập sai quá nhiều lần, thử lại sau 10 phút' });
+      const b = await readJsonBody(req), name = String(b.username || '').trim().toLowerCase();
+      const user = users.find(x => x.username === name);
+      if (!user || !same(hashPw(b.password || '', user.salt), user.hash)) { fail(ip); log(`Đăng nhập tài khoản SAI "${name.slice(0, 40)}" từ ${ip}`); return send(res, 403, { error: 'Sai tên đăng nhập hoặc mật khẩu' }); }
+      const t = crypto.randomBytes(32).toString('hex');
+      sessions.set(t, { userId: user.id, exp: Date.now() + SESSION_MS });
+      log(`${user.name} đăng nhập từ ${ip}`);
+      const secure = req.headers['cf-connecting-ip'] || req.headers['x-forwarded-proto'] === 'https' ? '; Secure' : '';
+      return send(res, 200, { role: user.role }, { 'Set-Cookie': `s=${t}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${SESSION_MS / 1000}${secure}` });
+    }
+    if (p === '/api/t/logout' && req.method === 'POST') {
+      sessions.delete(cookie(req, 's'));
+      return send(res, 200, {}, { 'Set-Cookie': 's=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0' });
+    }
 
-      if (a === 'status') return send(res, 200, adminStatus(local));
+    // ---------- Giáo viên: chỉ thấy bài của mình ----------
+    if (p.startsWith('/api/t/')) {
+      const user = currentUser(req);
+      if (!user) { req.resume(); return send(res, 403, { error: 'Chưa đăng nhập' }); }
+      const a = p.slice(7), post = req.method === 'POST';
+      if (a === 'me') return send(res, 200, { now: Date.now(), user: { name: user.name, role: user.role }, publicKey: school?.publicKey || null, keyId: school?.keyId || null,
+        exams: exams.filter(e => e.teacherId === user.id).map(e => ({ id: e.id, title: e.title, size: e.size, dur: e.dur, uploadedAt: e.uploadedAt, t0: e.t0, roomCount: Object.keys(e.rooms || {}).length, oldKey: e.keyId !== school?.keyId })) });
       if (post && a === 'chunk') {
-        if (!local) { req.resume(); return localOnly(); }
-        try { const got = await receiveChunk(req, q); if (+q.offset === 0) log(`Đang nhận file đề mã hoá (${(q.total / 1048576).toFixed(1)} MB)…`); return send(res, 200, { got }); }
+        try { return send(res, 200, { got: await receiveChunk(req, q, user) }); }
         catch (e) { log('Lỗi nhận file đề: ' + e.message); return send(res, 400, { error: e.message }); }
       }
-      if (post && a === 'setup') {
-        if (!local) return localOnly();
-        try { await finishExam(q); } catch (e) { log('Lỗi chuẩn bị đề: ' + e.message); return send(res, 400, { error: e.message }); }
-        log(`HỘI ĐỒNG: chuẩn bị đề mới "${cfg.title}", T0 = ${new Date(T0()).toLocaleString('vi-VN')}, ${Object.keys(cfg.rooms).length} phòng`);
-        return send(res, 200, adminStatus(local));
+      if (post && a === 'finish') {
+        const b = await readJsonBody(req);
+        try { const e = await finishUpload(b, user); log(`${user.name} đăng bài "${e.title}" (${(e.size / 1048576).toFixed(1)} MB)`); return send(res, 200, { id: e.id }); }
+        catch (e) { log('Lỗi đăng bài: ' + e.message); return send(res, 400, { error: e.message }); }
       }
-      if (post && a === 'key') {
-        if (!cfg) return send(res, 400, { error: 'Chưa có đề' });
-        const b = await readJson(req), err = checkKey(b.key);
-        if (err) { log('HỘI ĐỒNG: nạp khoá SAI'); return send(res, 400, { error: err }); }
-        examKey = Buffer.from(b.key, 'base64').toString('base64'); log('HỘI ĐỒNG: đã nạp khoá');
-        return send(res, 200, {});
-      }
-      if (post && a === 'unkey') { examKey = null; log('HỘI ĐỒNG: gỡ khoá khỏi máy chủ'); return send(res, 200, {}); }
-      if (post && a === 'play') { if (!released()) return send(res, 400, { error: 'Chưa đến giờ thi' }); playAt = Date.now() + 5000; log('HỘI ĐỒNG: lệnh phát đồng loạt'); return send(res, 200, { playAt }); }
-      if (post && a === 'cancel') { playAt = null; log('HỘI ĐỒNG: huỷ lệnh phát'); return send(res, 200, {}); }
-      if (post && a === 'release') { forceRelease = true; log('HỘI ĐỒNG: MỞ KHOÁ KHẨN CẤP'); return send(res, 200, {}); }
-      if (post && a === 'tunnel-start') { if (!local) return localOnly(); startTunnel(); return send(res, 200, {}); }
-      if (post && a === 'tunnel-stop') { if (!local) return localOnly(); stopTunnel(); return send(res, 200, {}); }
       if (post && a === 'delete') {
-        if (!local) return localOnly();
-        for (const f of [ENC_FILE, CFG_FILE]) try { fs.unlinkSync(f); } catch {}
-        cfg = null; examKey = null; forceRelease = false; playAt = null; resetRooms(); log('HỘI ĐỒNG: xoá đề');
+        const b = await readJsonBody(req), e = findExam(b.id);
+        if (!e || e.teacherId !== user.id) return send(res, 404, { error: 'Không tìm thấy bài' });
+        if (e.t0) return send(res, 400, { error: 'Bài đã xếp lịch – nhờ admin xoá' });
+        deleteExam(e); log(`${user.name} xoá bài "${e.title}"`);
         return send(res, 200, {});
       }
+      if (post && a === 'password') {
+        const b = await readJsonBody(req);
+        if (!same(hashPw(b.old || '', user.salt), user.hash)) return send(res, 400, { error: 'Mật khẩu hiện tại không đúng' });
+        if (String(b.password || '').length < 6) return send(res, 400, { error: 'Mật khẩu mới phải từ 6 ký tự' });
+        setPassword(user, b.password); log(`${user.name} đổi mật khẩu`);
+        return send(res, 200, {});
+      }
+      return send(res, 404, { error: 'Không tìm thấy' });
+    }
+
+    // ---------- Admin ----------
+    if (p.startsWith('/api/admin/')) {
+      const local = isLocal(req), sessionUser = currentUser(req);
+      const admin = sessionUser && sessionUser.role === 'admin' ? sessionUser : null;
+      if (!local && !admin) { req.resume(); return send(res, 403, { error: 'Cần đăng nhập tài khoản admin' }); }
+      const a = p.slice(11), post = req.method === 'POST', who = admin ? admin.name : 'Admin (máy chủ)';
+
+      if (a === 'status') return send(res, 200, adminStatus(req, admin));
+      if (!post) return send(res, 404, { error: 'Không tìm thấy' });
+      const b = await readJsonBody(req, 20000);
+
+      if (a === 'school-key') {
+        let pub, pem;
+        try { pub = crypto.createPublicKey(String(b.publicKey || '')); pem = pub.export({ type: 'spki', format: 'pem' }); } catch { return send(res, 400, { error: 'Khoá công khai không hợp lệ' }); }
+        if (pub.asymmetricKeyType !== 'rsa' || pub.asymmetricKeyDetails.modulusLength < 2048) return send(res, 400, { error: 'Khoá công khai quá yếu' });
+        school = { publicKey: String(pem), keyId: crypto.createHash('sha256').update(String(pem)).digest('hex').slice(0, 16), createdAt: Date.now() };
+        writeJson(SCHOOL_FILE, school); masterKey = null; badExams = [];
+        log(`${who}: tạo khoá trường mới`);
+        return send(res, 200, {});
+      }
+      if (a === 'key') {
+        const err = loadMasterKey(String(b.key || ''));
+        if (err) { log(`${who}: nạp khoá SAI`); return send(res, 400, { error: err }); }
+        log(`${who}: đã nạp khoá trường` + (badExams.length ? ` (${badExams.length} bài không mở được)` : ''));
+        return send(res, 200, { bad: badExams.length });
+      }
+      if (a === 'unkey') { masterKey = null; badExams = []; log(`${who}: gỡ khoá khỏi máy chủ`); return send(res, 200, {}); }
+
+      if (a === 'user-create') {
+        const name = String(b.name || '').trim().slice(0, 80), username = String(b.username || '').trim().toLowerCase();
+        if (!name) return send(res, 400, { error: 'Chưa nhập họ tên' });
+        if (!/^[a-z0-9._-]{3,30}$/.test(username)) return send(res, 400, { error: 'Tên đăng nhập 3–30 ký tự, không dấu, không khoảng trắng' });
+        if (users.some(x => x.username === username)) return send(res, 400, { error: 'Tên đăng nhập đã có' });
+        const role = b.role === 'admin' ? 'admin' : 'teacher', password = genPassword();
+        createUser(name, username, role, password); log(`${who}: tạo tài khoản ${username} (${role})`);
+        return send(res, 200, { username, password });
+      }
+      if (a === 'user-reset' || a === 'user-delete') {
+        const target = users.find(x => x.id === b.id);
+        if (!target) return send(res, 404, { error: 'Không tìm thấy tài khoản' });
+        endSessionsOf(target.id);
+        if (a === 'user-reset') { const password = genPassword(); setPassword(target, password); log(`${who}: đặt lại mật khẩu ${target.username}`); return send(res, 200, { username: target.username, password }); }
+        users = users.filter(x => x !== target); saveUsers(); log(`${who}: xoá tài khoản ${target.username} (giữ các bài đã đăng)`);
+        return send(res, 200, {});
+      }
+
+      if (a === 'link-set') {
+        if (!local) return send(res, 403, { error: 'Thao tác này chỉ làm được trên máy chủ' });
+        const url = String(b.url || '').trim().replace(/\/+$/, ''), secret = String(b.secret || '').trim();
+        if (!/^https:\/\/[a-z0-9.-]+$/.test(url) || !secret) return send(res, 400, { error: 'Cần địa chỉ https:// và mã link' });
+        link = { url, secret }; writeJson(LINK_FILE, link); log(`${who}: đặt link ngắn ${url}`);
+        if (tunnel.url) publishLink(tunnel.url);
+        return send(res, 200, {});
+      }
+      if (a === 'tunnel-start' || a === 'tunnel-stop') {
+        if (!local) return send(res, 403, { error: 'Thao tác này chỉ làm được trên máy chủ' });
+        if (a === 'tunnel-start') startTunnel(); else stopTunnel();
+        return send(res, 200, {});
+      }
+
+      // Phát đồng loạt: một lệnh có thể áp dụng cho nhiều bài, mọi phòng bắt đầu cùng một thời điểm
+      if (a === 'play') {
+        const list = (Array.isArray(b.ids) ? b.ids : []).map(findExam).filter(Boolean);
+        const ready = list.filter(e => released(e) && !!unwrapKey(e));
+        if (!ready.length) return send(res, 400, { error: 'Chưa có bài nào đến giờ và đã có khoá' });
+        const at = Date.now() + 5000;
+        for (const e of ready) liveOf(e).playAt = at;
+        log(`${who}: lệnh phát đồng loạt ${ready.map(e => `"${e.title}"`).join(', ')}`);
+        return send(res, 200, { playAt: at, count: ready.length });
+      }
+      if (a === 'cancel') {
+        for (const e of (Array.isArray(b.ids) ? b.ids : []).map(findExam).filter(Boolean)) { liveOf(e).playAt = null; log(`${who}: huỷ lệnh phát "${e.title}"`); }
+        return send(res, 200, {});
+      }
+
+      const e = findExam(b.id);
+      if (!e) return send(res, 404, { error: 'Không tìm thấy bài' });
+      if (a === 'schedule') {
+        const t0 = Date.parse(b.t0), n = parseInt(b.n);
+        if (isNaN(t0)) return send(res, 400, { error: 'Giờ thi không hợp lệ' });
+        if (!(n >= 1 && n <= 200)) return send(res, 400, { error: 'Số phòng từ 1 đến 200' });
+        if (liveOf(e).playAt) return send(res, 400, { error: 'Bài đã có lệnh phát – không đổi lịch được' });
+        schedule(e, t0, n); log(`${who}: xếp lịch "${e.title}" lúc ${new Date(t0).toLocaleString('vi-VN')}, ${n} phòng`);
+        return send(res, 200, {});
+      }
+      if (a === 'release') { liveOf(e).force = true; log(`${who}: MỞ KHOÁ KHẨN CẤP "${e.title}"`); return send(res, 200, {}); }
+      if (a === 'delete') { deleteExam(e); log(`${who}: xoá bài "${e.title}" của ${e.teacherName}`); return send(res, 200, {}); }
     }
     send(res, 404, { error: 'Không tìm thấy' });
   } catch (e) { log('Lỗi: ' + e.message); if (!res.headersSent) send(res, 500, { error: 'Lỗi máy chủ' }); }
 }).on('error', e => {
-  if (e.code === 'EADDRINUSE') { console.log(`\nChương trình đã đang chạy (cổng ${PORT} bận). Mở trình duyệt vào http://localhost:${PORT}/admin`); openBrowser(); setTimeout(() => process.exit(), 4000); }
+  if (e.code === 'EADDRINUSE') { console.log(`\nChương trình đã đang chạy (cổng ${PORT} bận). Mở trình duyệt vào http://localhost:${PORT}/a`); openBrowser(); setTimeout(() => process.exit(), 4000); }
   else console.log(e);
 }).listen(PORT, () => {
-  log(`Máy chủ chạy tại http://localhost:${PORT}  (bảng điều khiển: http://localhost:${PORT}/admin) · Node ${process.version}`);
+  log(`Máy chủ chạy tại http://localhost:${PORT}  (admin: /a · giáo viên: /g · kỹ thuật viên: /) · Node ${process.version}`);
+  if (fs.existsSync(path.join(DATA, 'config.json'))) log('LƯU Ý: có đề kiểu cũ trong data/config.json. Bản này không dùng đề đó; hãy đăng lại bài qua trang giáo viên.');
   console.log('Giữ cửa sổ này MỞ trong suốt buổi thi. Đóng cửa sổ = tắt chương trình.\n');
   openBrowser();
 });
 
 function openBrowser() {
   if (process.env.NO_OPEN) return;
-  const url = `http://localhost:${PORT}/admin`;
+  const url = `http://localhost:${PORT}/a`;
   const cmd = process.platform === 'win32' ? `start "" "${url}"` : process.platform === 'darwin' ? `open "${url}"` : `xdg-open "${url}"`;
   exec(cmd, () => {});
 }

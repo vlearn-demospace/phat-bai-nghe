@@ -1,0 +1,189 @@
+<!doctype html><html lang="vi"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Giáo viên – Phát bài nghe</title>
+<style>
+:root{--bg:#f4f6fb;--card:#fff;--ink:#0f172a;--mute:#64748b;--line:#e2e8f0;--blue:#2563eb;--green:#16a34a;--red:#dc2626;--soft:#eef2ff}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI",Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:16px}
+header{background:#0f172a;color:#fff;padding:16px 24px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+header h1{margin:0;font-size:20px;font-weight:600}
+main{max-width:800px;margin:0 auto;padding:24px 16px 60px}
+.card{background:var(--card);border-radius:14px;padding:22px 24px;margin-bottom:16px;box-shadow:0 1px 3px #0001}
+h2{margin:0 0 4px;font-size:20px}.mute{color:var(--mute)}.small{font-size:14px}
+label{display:block;font-weight:600;margin:14px 0 6px}
+input[type=text],input[type=password]{font:inherit;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;width:100%;background:#fff}
+button{font:inherit;padding:11px 18px;border:0;border-radius:10px;background:var(--blue);color:#fff;cursor:pointer;margin:6px 8px 0 0;font-weight:600}
+button:disabled{opacity:.45;cursor:not-allowed}.b-red{background:var(--red)}.b-grey{background:#64748b}.big-btn{font-size:18px;padding:14px 24px}
+.drop{border:2px dashed #94a3b8;border-radius:14px;padding:28px;text-align:center;cursor:pointer;background:#f8fafc}
+.drop.over{border-color:var(--blue);background:var(--soft)}.drop b{display:block;font-size:18px;margin-bottom:4px}
+.note{padding:12px 16px;border-radius:10px;margin:12px 0;font-size:15px}
+.note.ok{background:#dcfce7;color:#14532d}.note.warn{background:#fef3c7;color:#78350f}.note.err{background:#fee2e2;color:#7f1d1d}.note.info{background:var(--soft);color:#1e3a8a}
+.bar{height:10px;background:var(--line);border-radius:6px;overflow:hidden;margin-top:10px}.bar div{height:100%;width:0;background:var(--blue);transition:width .2s}
+table{width:100%;border-collapse:collapse;font-size:15px}td,th{padding:9px 8px;border-bottom:1px solid var(--line);text-align:left}th{color:var(--mute);font-weight:600}
+.hidden{display:none!important}
+</style></head><body>
+
+<header><h1>🎧 Phát bài nghe – Giáo viên</h1><div id="who" class="small"></div></header>
+
+<main id="loginView" class="hidden">
+  <div class="card" style="max-width:420px;margin:40px auto">
+    <h2>Đăng nhập</h2>
+    <p class="mute">Dùng tài khoản do admin cấp.</p>
+    <label>Tên đăng nhập</label><input type="text" id="un" autocomplete="username" autocapitalize="none">
+    <label>Mật khẩu</label><input type="password" id="pw" autocomplete="current-password">
+    <button id="btnLogin">Đăng nhập</button>
+    <div id="loginErr" class="note err hidden"></div>
+  </div>
+</main>
+
+<main id="app" class="hidden">
+  <div class="card">
+    <h2>Đăng bài nghe</h2>
+    <p class="mute">File được <b>mã hoá ngay trên máy của bạn</b> trước khi gửi đi. Admin sẽ xếp giờ thi và phòng thi.</p>
+    <div id="noKey" class="note warn hidden">Admin chưa tạo khoá trường nên chưa đăng bài được. Hãy báo admin.</div>
+    <div id="form">
+      <div class="drop" id="drop"><b>Kéo thả file nghe vào đây</b><span class="mute">hoặc bấm để chọn (mp3, wav, m4a, ogg)</span></div>
+      <input type="file" id="file" accept="audio/*,.mp3,.wav,.m4a,.ogg" hidden>
+      <div id="fileInfo" class="note info hidden"></div>
+      <audio id="preview" controls class="hidden" style="width:100%;margin-top:8px"></audio>
+      <label>Tên bài</label>
+      <input type="text" id="title" maxlength="120" placeholder="VD: HSG Tiếng Anh 12 – Ca sáng">
+      <button id="btnUp" class="big-btn">🔒 Mã hoá và đăng bài</button>
+      <div id="prog" class="hidden"><div id="progMsg" class="mute"></div><div class="bar"><div id="progBar"></div></div></div>
+      <div id="upErr" class="note err hidden"></div>
+      <div id="upOk" class="note ok hidden"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Bài của tôi</h2>
+    <div id="empty" class="mute" style="margin-top:8px">Bạn chưa đăng bài nào.</div>
+    <table id="tbl" class="hidden" style="margin-top:8px"><thead><tr><th>Bài</th><th>Đăng lúc</th><th>Giờ thi</th><th></th></tr></thead><tbody id="rows"></tbody></table>
+  </div>
+
+  <div class="card">
+    <h2>Đổi mật khẩu</h2>
+    <label>Mật khẩu hiện tại</label><input type="password" id="pwOld" autocomplete="current-password">
+    <label>Mật khẩu mới (từ 6 ký tự)</label><input type="password" id="pwNew" autocomplete="new-password">
+    <button id="btnPw">Đổi mật khẩu</button>
+    <div id="pwMsg" class="note hidden"></div>
+  </div>
+  <button id="btnOut" class="b-grey">Đăng xuất</button>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const pad = n => String(n).padStart(2, '0');
+const mb = b => (b / 1048576).toFixed(1) + ' MB';
+const mmss = s => pad(Math.floor(s / 60)) + ':' + pad(Math.floor(s % 60));
+const show = (id, on) => $(id).classList.toggle('hidden', !on);
+function note(id, text) { $(id).textContent = text; show(id, !!text); }
+let S = null, audioFile = null, busy = false;
+
+async function api(a, opt = {}) {
+  const r = await fetch(`/api/t/${a}${opt.q ? '?' + opt.q : ''}`, { method: opt.body !== undefined ? 'POST' : 'GET', body: opt.body, headers: opt.json ? { 'Content-Type': 'application/json' } : {}, cache: 'no-store' });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) { const e = new Error(d.error || 'Lỗi ' + r.status); e.code = r.status; throw e; }
+  return d;
+}
+const post = (a, obj) => api(a, { body: JSON.stringify(obj || {}), json: true });
+
+async function refresh() {
+  try { S = await api('me'); }
+  catch (e) { if (e.code === 403) { show('loginView', true); show('app', false); $('who').textContent = ''; } return; }
+  show('loginView', false); show('app', true);
+  $('who').textContent = S.user.name;
+  show('noKey', !S.publicKey); show('form', !!S.publicKey);
+  show('empty', !S.exams.length); show('tbl', !!S.exams.length);
+  const html = S.exams.map(e => `<tr><td><b>${esc(e.title)}</b><div class="mute small">${mb(e.size)}${e.dur ? ' · dài ' + mmss(e.dur) : ''}</div></td>
+    <td class="small">${new Date(e.uploadedAt).toLocaleString('vi-VN')}</td>
+    <td class="small">${e.oldKey ? '<span style="color:var(--red)">Khoá trường đã đổi – cần đăng lại</span>' : e.t0 ? new Date(e.t0).toLocaleString('vi-VN') + ` · ${e.roomCount} phòng` : '<span class="mute">Chờ admin xếp lịch</span>'}</td>
+    <td>${e.t0 ? '' : `<button class="b-red" data-del="${esc(e.id)}" style="margin:0">Xoá</button>`}</td></tr>`).join('');
+  if ($('rows').dataset.h !== html) { $('rows').innerHTML = html; $('rows').dataset.h = html; }
+}
+$('rows').onclick = async ev => {
+  const id = ev.target.dataset.del; if (!id) return;
+  if (!confirm('Xoá bài này khỏi máy chủ?')) return;
+  try { await post('delete', { id }); refresh(); } catch (e) { alert(e.message); }
+};
+
+// ---------- Đăng nhập ----------
+$('btnLogin').onclick = async () => {
+  note('loginErr', '');
+  try { await post('login', { username: $('un').value, password: $('pw').value }); $('pw').value = ''; refresh(); }
+  catch (e) { note('loginErr', e.code ? e.message : 'Không kết nối được máy chủ.'); }
+};
+$('pw').onkeydown = e => { if (e.key === 'Enter') $('btnLogin').click(); };
+$('btnOut').onclick = async () => { await post('logout'); location.reload(); };
+$('btnPw').onclick = async () => {
+  $('pwMsg').className = 'note hidden';
+  try { await post('password', { old: $('pwOld').value, password: $('pwNew').value }); $('pwMsg').className = 'note ok'; $('pwMsg').textContent = 'Đã đổi mật khẩu.'; $('pwOld').value = $('pwNew').value = ''; }
+  catch (e) { $('pwMsg').className = 'note err'; $('pwMsg').textContent = e.message; }
+};
+
+// ---------- Chọn file ----------
+const MIMES = { mp3: 'audio/mpeg', wav: 'audio/wav', m4a: 'audio/mp4', ogg: 'audio/ogg', aac: 'audio/aac' };
+function pickAudio(f) {
+  if (!f) return;
+  const ext = f.name.split('.').pop().toLowerCase();
+  if (!MIMES[ext] && !/^audio\//.test(f.type)) { note('upErr', 'Chỉ nhận file âm thanh (mp3, wav, m4a, ogg).'); return; }
+  audioFile = f; note('upErr', ''); note('upOk', '');
+  $('fileInfo').textContent = `📄 ${f.name} · ${mb(f.size)}`; show('fileInfo', true);
+  const pv = $('preview'); if (pv.src) URL.revokeObjectURL(pv.src); pv.src = URL.createObjectURL(f); show('preview', true);
+  pv.onloadedmetadata = () => { $('fileInfo').textContent = `📄 ${f.name} · ${mb(f.size)} · dài ${mmss(pv.duration)}`; };
+  if (!$('title').value) $('title').value = f.name.replace(/\.[^.]+$/, '');
+}
+const z = $('drop');
+z.onclick = () => $('file').click(); $('file').onchange = () => pickAudio($('file').files[0]);
+z.ondragover = e => { e.preventDefault(); z.classList.add('over'); };
+z.ondragleave = () => z.classList.remove('over');
+z.ondrop = e => { e.preventDefault(); z.classList.remove('over'); pickAudio(e.dataTransfer.files[0]); };
+
+// ---------- Mã hoá trong trình duyệt và gửi đi ----------
+const toB64 = u8 => { let s = ''; for (let i = 0; i < u8.length; i += 8192) s += String.fromCharCode(...u8.subarray(i, i + 8192)); return btoa(s); };
+const fromPem = pem => Uint8Array.from(atob(pem.replace(/-----[^-]+-----|\s/g, '')), c => c.charCodeAt(0));
+
+$('btnUp').onclick = async () => {
+  note('upErr', ''); note('upOk', '');
+  if (!audioFile) return note('upErr', 'Chưa chọn file nghe.');
+  if (!window.crypto?.subtle) return note('upErr', 'Trình duyệt không cho phép mã hoá: phải mở bằng địa chỉ https://.');
+  const title = $('title').value.trim() || audioFile.name.replace(/\.[^.]+$/, '');
+  $('btnUp').disabled = true; busy = true; show('prog', true);
+  const msg = t => $('progMsg').textContent = t, bar = p => $('progBar').style.width = p + '%';
+  try {
+    msg('Đang đọc file…'); bar(10);
+    const plain = await audioFile.arrayBuffer();
+    msg('Đang mã hoá (AES-256)…'); bar(30);
+    const raw = crypto.getRandomValues(new Uint8Array(32)), iv = crypto.getRandomValues(new Uint8Array(12));
+    const k = await crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt']);
+    const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, k, plain));
+    const enc = new Uint8Array(12 + ct.length); enc.set(iv); enc.set(ct, 12);
+    // Khoá của bài được bọc bằng khoá công khai của trường: chỉ file khoá của admin mới mở được
+    const pub = await crypto.subtle.importKey('spki', fromPem(S.publicKey), { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['encrypt']);
+    const wrappedKey = toB64(new Uint8Array(await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, pub, raw)));
+    raw.fill(0);
+    const sha256 = [...new Uint8Array(await crypto.subtle.digest('SHA-256', enc))].map(x => x.toString(16).padStart(2, '0')).join('');
+    const ext = audioFile.name.split('.').pop().toLowerCase(), CH = 2 * 1048576;
+    for (let off = 0; off < enc.length; off += CH) {
+      msg(`Đang gửi bản mã hoá… ${mb(Math.min(off + CH, enc.length))} / ${mb(enc.length)}`);
+      bar(40 + 55 * off / enc.length);
+      let tries = 0;
+      for (;;) {
+        try { await api('chunk', { q: `offset=${off}`, body: new Blob([enc.subarray(off, off + CH)]) }); break; }
+        catch (e) { if (e.code || ++tries >= 3) throw e; await new Promise(r => setTimeout(r, 1000)); }   // lỗi mạng: thử lại 3 lần
+      }
+    }
+    msg('Đang hoàn tất…'); bar(97);
+    await post('finish', { title, mime: MIMES[ext] || audioFile.type, size: enc.length, sha256, wrappedKey, keyId: S.keyId, dur: $('preview').duration || 0 });
+    bar(100);
+    note('upOk', `Đã đăng "${title}". Admin sẽ xếp lịch cho bài này.`);
+    audioFile = null; $('file').value = ''; $('title').value = ''; show('fileInfo', false); $('preview').removeAttribute('src'); show('preview', false);
+    refresh();
+  } catch (e) { note('upErr', 'Lỗi: ' + (e.code ? e.message : 'Mất kết nối với máy chủ. Kiểm tra mạng rồi thử lại.')); }
+  finally { $('btnUp').disabled = false; busy = false; setTimeout(() => show('prog', false), 800); }
+};
+window.addEventListener('beforeunload', e => { if (busy) { e.preventDefault(); e.returnValue = ''; } });
+
+refresh(); setInterval(() => { if (!busy) refresh(); }, 5000);
+</script></body></html>

@@ -7,29 +7,39 @@ CÀI ĐẶT (một lần, trên máy làm máy chủ)
   • Node.js bản LTS: https://nodejs.org
   • Để truy cập từ xa: mở Command Prompt, chạy  winget install Cloudflare.cloudflared
 
-SỬ DỤNG
-  Bấm đúp MO-CHUONG-TRINH.bat → trình duyệt tự mở Bảng điều khiển.
+BA ĐỊA CHỈ
+  /a   Admin          trên máy chủ không cần đăng nhập; máy khác dùng tài khoản admin
+  /g   Giáo viên      đăng nhập bằng tài khoản admin cấp
+  /    Kỹ thuật viên  nhập mã 4 ký tự trên phiếu (hoặc mở link in sẵn, dạng /K7M2)
+
+ADMIN – CHUẨN BỊ MỘT LẦN
+  Bấm đúp MO-CHUONG-TRINH.bat → trình duyệt tự mở trang admin.
   Giữ cửa sổ đen mở suốt buổi thi (đóng = tắt chương trình).
-  Bảng điều khiển có 4 bước, làm lần lượt:
+  1. Bài nghe       – bấm "Tạo khoá trường". Máy tự tải về FILE KHOÁ: chép vào USB rồi xoá khỏi máy.
+  2. Giáo viên      – tạo tài khoản, gửi tên đăng nhập và mật khẩu (mật khẩu chỉ hiện một lần).
+  3. Truy cập từ xa – bấm "Bật truy cập từ xa", gửi địa chỉ /g cho giáo viên.
 
-  1. Chuẩn bị đề  – kéo thả file nghe, chọn ngày giờ, số phòng → bấm "Mã hoá".
-                    Máy tự tải về FILE KHOÁ: chép vào USB rồi xoá khỏi máy.
-  2. Mã phòng     – xem và in phiếu mã cho từng phòng.
-  3. Truy cập từ xa – bấm "Bật truy cập từ xa", lấy địa chỉ https:// gửi các phòng.
-                    (Bật vào sáng ngày thi rồi in phiếu – phiếu sẽ có sẵn link.)
-  4. Ngày thi     – kéo thả file khoá từ USB vào; theo dõi các phòng;
-                    đến giờ bấm "Phát đồng loạt".
+GIÁO VIÊN
+  Mở địa chỉ /g, đăng nhập, kéo thả file nghe, đặt tên bài, bấm "Mã hoá và đăng bài".
+  Bài đã xếp lịch thì nhờ admin xoá nếu cần thay.
 
-MÁY PHÒNG THI
+ADMIN – MỖI KỲ THI
+  1. Bài nghe – xem ai đã đăng; bấm "Xếp lịch" chọn ngày giờ và số phòng; bấm "Mã phòng" để in phiếu.
+  2. Ngày thi – kéo thả file khoá từ USB vào (một lần cho mọi bài); theo dõi các phòng của từng bài.
+  3. Đến giờ: bấm "Phát đồng loạt bài này", hoặc tích nhiều bài rồi bấm "Phát các bài đã chọn".
+
+MÁY PHÒNG THI (kỹ thuật viên)
   Mở link trên phiếu (hoặc địa chỉ https:// rồi nhập mã), bấm "Thử loa", để nguyên.
-  Nên dùng shortcut Chrome chế độ kiosk – lệnh có sẵn ở bước 3.
+  Nên dùng shortcut Chrome chế độ kiosk – lệnh có sẵn ở thẻ Truy cập từ xa.
 
 LƯU Ý
   • Khoá chỉ giữ trong bộ nhớ: nếu tắt/mở lại chương trình, nạp lại file khoá.
-  • Địa chỉ trycloudflare.com đổi mỗi lần bật lại → bật một lần và để nguyên.
+  • Mất file khoá hoặc tạo khoá trường mới: các bài chưa thi phải đăng lại.
+  • Link ngắn lvcnghe.pages.dev không đổi và tự trỏ về máy chủ khi bật truy cập từ xa (có thể mất khoảng một phút).
+  • Bật lại truy cập từ xa thì các máy đang mở phải tải lại trang qua link ngắn. Nên bật một lần và để nguyên.
   • Mọi diễn biến ghi trong log.txt.
 
-DIỄN TẬP: chuẩn bị đề với file mp3 bất kỳ, giờ mở khoá 2–3 phút sau.
-  Mở http://localhost:8080/?c=<mã phòng> ở 2–3 cửa sổ khác nhau để giả lập các phòng.
+DIỄN TẬP: đăng bài với file mp3 bất kỳ, xếp giờ mở khoá 2–3 phút sau.
+  Mở http://localhost:8080/<mã phòng> ở 2–3 cửa sổ khác nhau để giả lập các phòng.
 
 CẬP NHẬT: bấm đúp CAP-NHAT.bat (giữ nguyên dữ liệu kỳ thi). Không cập nhật vào sáng ngày thi.
