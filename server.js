@@ -128,7 +128,10 @@ function startTunnel() {
   if (tunnel.proc) return;
   Object.assign(tunnel, { status: 'starting', url: '', msg: 'Đang mở đường hầm HTTPS…' });
   let p;
-  try { p = spawn('cloudflared', ['tunnel', '--no-autoupdate', '--url', `http://localhost:${PORT}`], { windowsHide: true }); }
+  const exe = ['C:\\Program Files (x86)\\cloudflared\\cloudflared.exe', 'C:\\Program Files\\cloudflared\\cloudflared.exe',
+    path.join(process.env.LOCALAPPDATA || '', 'Microsoft', 'WinGet', 'Links', 'cloudflared.exe')]
+    .find(f => process.platform === 'win32' && fs.existsSync(f)) || 'cloudflared';
+  try { p = spawn(exe, ['tunnel', '--no-autoupdate', '--url', `http://localhost:${PORT}`], { windowsHide: true }); }
   catch { Object.assign(tunnel, { status: 'missing', msg: 'Chưa cài cloudflared' }); return; }
   tunnel.proc = p;
   const scan = d => {

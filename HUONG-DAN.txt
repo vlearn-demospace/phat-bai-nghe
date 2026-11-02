@@ -2,6 +2,8 @@ PHÁT BÀI NGHE CÓ KHOÁ THEO GIỜ – HƯỚNG DẪN
 ==========================================
 
 CÀI ĐẶT (một lần, trên máy làm máy chủ)
+  • Cách nhanh: bấm đúp CAI-DAT-MAY-MOI.bat – tự cài mọi thứ và tạo lối tắt trên Desktop.
+  • Hoặc cài tay:
   • Node.js bản LTS: https://nodejs.org
   • Để truy cập từ xa: mở Command Prompt, chạy  winget install Cloudflare.cloudflared
 
@@ -29,3 +31,5 @@ LƯU Ý
 
 DIỄN TẬP: chuẩn bị đề với file mp3 bất kỳ, giờ mở khoá 2–3 phút sau.
   Mở http://localhost:8080/?c=<mã phòng> ở 2–3 cửa sổ khác nhau để giả lập các phòng.
+
+CẬP NHẬT: bấm đúp CAP-NHAT.bat (giữ nguyên dữ liệu kỳ thi). Không cập nhật vào sáng ngày thi.
