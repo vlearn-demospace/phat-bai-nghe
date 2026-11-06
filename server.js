@@ -21,7 +21,7 @@ let users = readJson(USERS_FILE, []);     // [{ id, name, username, role, salt, 
 let school = readJson(SCHOOL_FILE, null); // { publicKey, keyId, createdAt } – chỉ có khoá công khai
 let ktvs = readJson(KTV_FILE, []);        // [{ id, name }] – kỹ thuật viên không có tài khoản, chỉ để phân phòng
 let masterKey = null;                     // khoá riêng của trường CHỈ nằm trong RAM, không ghi ra đĩa
-const live = {};                          // trạng thái theo bài, chỉ trong RAM: { force, playAt, rooms }
+const live = {};                          // trạng thái theo bài, chỉ trong RAM: { force, playAt, playAt2, wave2, rooms }
 const sessions = new Map();               // mã phiên -> { userId, exp }
 const tunnel = { proc: null, status: 'off', url: '', msg: '' };
 const fails = {};                         // chống dò mã: đếm lần nhập sai theo IP
@@ -51,7 +51,7 @@ const encFile = id => path.join(EXAMS_DIR, id + '.enc');
 const findExam = id => exams.find(e => e.id === id);
 
 function liveOf(e) {
-  const l = live[e.id] || (live[e.id] = { force: false, playAt: null, rooms: {} });
+  const l = live[e.id] || (live[e.id] = { force: false, playAt: null, playAt2: null, wave2: [], rooms: {} });
   for (const r of Object.keys(e.rooms || {}))
     if (!l.rooms[r]) l.rooms[r] = { status: 'chưa kết nối', lastSeen: 0, pos: 0, dur: 0, activated: false, ip: '' };
   for (const r of Object.keys(l.rooms)) if (!e.rooms || !e.rooms[r]) delete l.rooms[r];
@@ -211,6 +211,22 @@ function schedule(e, t0, assign) {
   e.t0 = t0; saveExams();
   liveOf(e);
 }
+// Hai phòng sát vách cùng tầng phát cùng lúc sẽ bị vọng âm: trong mỗi dãy phòng liền nhau đang phát,
+// các phòng xen kẽ sang đợt 2. Ô cầu thang (null) và phòng không phát ngắt dãy.
+const WAVE_GAP = 10000;
+function splitWaves(rooms) {
+  const wave2 = new Set();
+  for (const k of SCHOOL_MAP) for (const f of k.floors) {
+    let run = 0;
+    for (const r of f.rooms) {
+      const id = r && 'P' + r[0];
+      if (!id || !rooms.has(id)) { run = 0; continue; }
+      if (run++ % 2) wave2.add(id);
+    }
+  }
+  return wave2;
+}
+const durOf = e => Math.max(e.dur || 0, ...Object.values(liveOf(e).rooms).map(s => s.dur || 0));   // giây
 // Một phòng không thể phát hai bài trùng giờ. Bài chưa rõ độ dài thì tính 60 phút.
 const examSpan = e => (e.dur || 3600) * 1000;
 function roomClash(e, t0, rooms) {
@@ -297,7 +313,7 @@ process.on('SIGINT', () => process.exit());
 function examForAdmin(e) {
   const l = liveOf(e);
   return { id: e.id, title: e.title, teacherName: e.teacherName, teacherId: e.teacherId, mime: e.mime, size: e.size, dur: e.dur, uploadedAt: e.uploadedAt,
-    t0: e.t0, codes: e.rooms || {}, ktv: e.ktv || {}, released: released(e), force: l.force, playAt: l.playAt, rooms: l.rooms,
+    t0: e.t0, codes: e.rooms || {}, ktv: e.ktv || {}, released: released(e), force: l.force, playAt: l.playAt, playAt2: l.playAt2, wave2: l.wave2, rooms: l.rooms,
     oldKey: e.keyId !== school?.keyId, bad: badExams.includes(e.id) };
 }
 function adminStatus(req, user) {
@@ -355,7 +371,8 @@ http.createServer(async (req, res) => {
       const l = liveOf(f.exam), s = l.rooms[f.room], st = String(b.status || '').slice(0, 60);
       if (s.status !== st) log(`${f.exam.title} / ${f.room}: ${st}`);
       Object.assign(s, { status: st, pos: +b.pos || 0, dur: +b.dur || 0, activated: !!b.activated, lastSeen: Date.now(), ip });
-      return send(res, 200, { playAt: l.playAt, released: released(f.exam), title: f.exam.title, t0: f.exam.t0 });
+      const w2 = l.wave2.includes(f.room);
+      return send(res, 200, { playAt: w2 ? l.playAt2 : l.playAt, wave: w2 ? 2 : 1, released: released(f.exam), title: f.exam.title, t0: f.exam.t0 });
     }
 
     // ---------- Đăng nhập tài khoản ----------
@@ -489,13 +506,24 @@ http.createServer(async (req, res) => {
         const list = (Array.isArray(b.ids) ? b.ids : []).map(findExam).filter(Boolean);
         const ready = list.filter(e => released(e) && !!unwrapKey(e));
         if (!ready.length) return send(res, 400, { error: 'Chưa có bài nào đến giờ và đã có khoá' });
-        const at = Date.now() + 5000;
-        for (const e of ready) liveOf(e).playAt = at;
-        log(`${who}: lệnh phát đồng loạt ${ready.map(e => `"${e.title}"`).join(', ')}`);
-        return send(res, 200, { playAt: at, count: ready.length });
+        const at = Date.now() + 5000, wave2 = splitWaves(new Set(ready.flatMap(e => Object.keys(e.rooms || {}))));
+        let at2 = null;
+        if (wave2.size) {
+          const first = ready.filter(e => Object.keys(e.rooms).some(r => !wave2.has(r))), unknown = first.find(e => !durOf(e));
+          if (unknown) return send(res, 400, { error: `Chưa biết độ dài bài "${unknown.title}" nên chưa tính được giờ phát đợt 2. Chờ các phòng báo "sẵn sàng phát" rồi bấm lại.` });
+          at2 = at + Math.max(...first.map(durOf)) * 1000 + WAVE_GAP;
+        }
+        for (const e of ready) {
+          const l = liveOf(e);
+          l.wave2 = Object.keys(e.rooms).filter(r => wave2.has(r));
+          l.playAt = at; l.playAt2 = l.wave2.length ? at2 : null;
+        }
+        log(`${who}: lệnh phát đồng loạt ${ready.map(e => `"${e.title}"`).join(', ')}` +
+          (at2 ? `; đợt 2 lúc ${new Date(at2).toLocaleTimeString('vi-VN')}: ${[...wave2].sort().map(r => 'P.' + r.slice(1)).join(', ')}` : ''));
+        return send(res, 200, { playAt: at, playAt2: at2, count: ready.length, wave2: wave2.size });
       }
       if (a === 'cancel') {
-        for (const e of (Array.isArray(b.ids) ? b.ids : []).map(findExam).filter(Boolean)) { liveOf(e).playAt = null; log(`${who}: huỷ lệnh phát "${e.title}"`); }
+        for (const e of (Array.isArray(b.ids) ? b.ids : []).map(findExam).filter(Boolean)) { Object.assign(liveOf(e), { playAt: null, playAt2: null, wave2: [] }); log(`${who}: huỷ lệnh phát "${e.title}"`); }
         return send(res, 200, {});
       }
 

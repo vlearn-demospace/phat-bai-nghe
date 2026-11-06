@@ -317,7 +317,8 @@ function render() {
   setHtml($('playPicks'), sch.map(e => `<label class="check"><input type="checkbox" data-pick="${e.id}" ${picks.has(e.id) ? 'checked' : ''}> ${esc(e.title)} <span class="mute small">(${fmtShort(e.t0)})</span></label>`).join(''));
   document.querySelectorAll('[data-pick]').forEach(c => c.checked = picks.has(c.dataset.pick));
   $('btnPlayMany').disabled = ![...picks].some(id => { const e = ex.find(x => x.id === id); return e && e.released && S.hasKey; });
-  $('btnCancelAll').disabled = !sch.some(e => e.playAt && e.playAt > now);
+  const lastPlay = e => Math.max(e.playAt || 0, e.playAt2 || 0);
+  $('btnCancelAll').disabled = !sch.some(e => lastPlay(e) > now);
   setHtml($('liveCards'), sch.map(e => `<div class="card">
     <h2>${esc(e.title)}</h2>
     <div class="mute small">${esc(e.teacherName)} · Mở khoá lúc <b>${fmt(e.t0)}</b></div>
@@ -339,14 +340,17 @@ function render() {
       .map(([k, v]) => `<div class="stat"><span class="mute small">${k}</span><b>${v}</b></div>`).join(''));
     const warn = !S.hasKey ? (e.released ? '⚠ ĐÃ ĐẾN GIỜ nhưng chưa nạp khoá – các phòng đang chờ. Nạp khoá ngay!' : '⚠ Chưa nạp khoá – nhớ nạp trước giờ thi.') : '';
     const pn = $('pn-' + e.id);
-    pn.textContent = e.playAt ? (e.playAt > now ? `Lệnh phát: các phòng bắt đầu sau ${Math.ceil((e.playAt - now) / 1000)} giây…` : `Đã phát lệnh lúc ${new Date(e.playAt).toLocaleTimeString('vi-VN')}`) : warn;
+    const n2 = e.wave2.length, n1 = list.length - n2, hhmm = t => new Date(t).toLocaleTimeString('vi-VN');
+    const w1 = e.playAt > now ? `bắt đầu sau ${Math.ceil((e.playAt - now) / 1000)} giây…` : `phát lúc ${hhmm(e.playAt)}`;
+    pn.textContent = !e.playAt ? warn : !n2 ? (e.playAt > now ? 'Lệnh phát: các phòng ' + w1 : `Đã phát lệnh lúc ${hhmm(e.playAt)}`)
+      : [n1 ? `Đợt 1 (${n1} phòng) ${w1}` : '', `Đợt 2 (${n2} phòng sát vách) ${e.playAt2 > now ? 'bắt đầu' : 'phát'} lúc ${hhmm(e.playAt2)}`].filter(Boolean).join(' · ');
     pn.className = 'note ' + (e.playAt ? 'info' : 'warn') + (pn.textContent ? '' : ' hidden');
     $('bp-' + e.id).disabled = !e.released || !S.hasKey || e.oldKey || e.bad;
-    $('bc-' + e.id).disabled = !(e.playAt && e.playAt > now);
+    $('bc-' + e.id).disabled = !(lastPlay(e) > now);
     $('br-' + e.id).disabled = e.released;
     setHtml($('rw-' + e.id), list.map(([r, s]) => {
       const ago = s.lastSeen ? Math.round((now - s.lastSeen) / 1000) : null, on = ago !== null && ago < 10;
-      return `<tr><td><b>${roomName(r)}</b></td><td>${esc(ktvName(e.ktv[r])) || '–'}</td><td class="${on ? 'on' : 'off'}">${ago === null ? '○ chưa kết nối' : on ? '● trực tuyến' : '○ mất kết nối ' + ago + 's'}</td>
+      return `<tr><td><b>${roomName(r)}</b>${e.wave2.includes(r) ? ' <span class="mute small">· đợt 2</span>' : ''}</td><td>${esc(ktvName(e.ktv[r])) || '–'}</td><td class="${on ? 'on' : 'off'}">${ago === null ? '○ chưa kết nối' : on ? '● trực tuyến' : '○ mất kết nối ' + ago + 's'}</td>
         <td>${esc(s.status)}</td><td>${s.activated ? '✓' : '–'}</td><td>${s.dur ? mmss(s.pos) + ' / ' + mmss(s.dur) : ''}</td></tr>`;
     }).join(''));
   }
@@ -528,14 +532,15 @@ $('btnUnkey').onclick = () => { if (confirm('Gỡ khoá? Các phòng chưa mở 
 $('playPicks').onchange = ev => { const id = ev.target.dataset.pick; if (id) { ev.target.checked ? picks.add(id) : picks.delete(id); render(); } };
 $('btnPlayMany').onclick = () => {
   const list = S.exams.filter(e => picks.has(e.id) && e.released);
-  if (confirm(`Phát ĐỒNG LOẠT ${list.length} bài sau 5 giây?\n\n${list.map(e => '• ' + e.title).join('\n')}`)) act('play', { ids: list.map(e => e.id) });
+  if (confirm(`Phát ĐỒNG LOẠT ${list.length} bài sau 5 giây?\n\n${list.map(e => '• ' + e.title).join('\n')}\n\n${WAVE_NOTE}`)) act('play', { ids: list.map(e => e.id) });
 };
+const WAVE_NOTE = 'Phòng sát vách cùng tầng tự chia 2 đợt: đợt 2 phát sau khi đợt 1 phát xong.';
 $('btnCancelAll').onclick = () => act('cancel', { ids: S.exams.map(e => e.id) });
 $('liveCards').onclick = ev => {
   const d = ev.target.dataset, find = id => S.exams.find(e => e.id === id);
   if (d.play) {
     const e = find(d.play), list = Object.values(e.rooms), ready = list.filter(s => s.status === 'sẵn sàng phát').length;
-    if (confirm(`Phát "${e.title}" ĐỒNG LOẠT sau 5 giây?\n\n${ready}/${list.length} phòng đang báo "sẵn sàng phát".`)) act('play', { ids: [e.id] });
+    if (confirm(`Phát "${e.title}" ĐỒNG LOẠT sau 5 giây?\n\n${ready}/${list.length} phòng đang báo "sẵn sàng phát".\n\n${WAVE_NOTE}`)) act('play', { ids: [e.id] });
   }
   if (d.cancel) act('cancel', { ids: [d.cancel] });
   if (d.rel) {

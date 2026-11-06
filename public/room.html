@@ -164,7 +164,7 @@ async function report() {
     if (d.playAt && d.playAt !== handledPlayAt && unlocked) {
       handledPlayAt = d.playAt; const wait = d.playAt - now();
       if (wait > -15000) {
-        $('msg').textContent = 'Đã nhận lệnh phát đồng loạt…';
+        $('msg').textContent = d.wave === 2 && wait > 15000 ? `Phòng này phát đợt 2, lúc ${new Date(d.playAt).toLocaleTimeString('vi-VN')}, sau khi các phòng sát vách phát xong. Để nguyên máy.` : 'Đã nhận lệnh phát đồng loạt…';
         setTimeout(() => { if (currentPlayAt === handledPlayAt) play(); else $('msg').textContent = 'Admin đã huỷ lệnh phát.'; }, Math.max(0, wait));
       } else $('msg').textContent = 'Lệnh phát đã quá 15 giây – bấm Phát thủ công nếu được chỉ đạo.';
     }

@@ -27,6 +27,7 @@ ADMIN – MỖI KỲ THI
   1. Bài nghe – xem ai đã đăng; bấm "Xếp lịch" chọn ngày giờ; chọn kỹ thuật viên rồi bấm các ô phòng trên sơ đồ; bấm "Mã phòng" để in phiếu.
   2. Ngày thi – kéo thả file khoá từ USB vào (một lần cho mọi bài); theo dõi các phòng của từng bài.
   3. Đến giờ: bấm "Phát đồng loạt bài này", hoặc tích nhiều bài rồi bấm "Phát các bài đã chọn".
+     Phòng sát vách cùng tầng tự chia 2 đợt xen kẽ (tránh vọng âm): đợt 2 phát 10 giây sau khi đợt 1 phát xong.
 
 MÁY PHÒNG THI (kỹ thuật viên)
   Mở link trên phiếu (hoặc địa chỉ https:// rồi nhập mã), bấm "Thử loa", để nguyên.
