@@ -59,8 +59,8 @@ async function superApi(req, env, p) {
     const t = await DB.prepare('SELECT * FROM truong WHERE slug = ?').bind(String(p[1]).toLowerCase()).first();
     if (!t) return json(404, { error: 'Không có trường này' });
     if (p.length === 2 && req.method === 'GET') {
-      const admins = (await DB.prepare("SELECT name, username FROM users WHERE truong_id = ? AND role = 'admin' ORDER BY created_at").bind(t.id).all()).results;
-      return json(200, { slug: t.slug, ten: t.ten, goi: t.goi, het_han: t.het_han, khoa: t.khoa, ban_do: JSON.parse(t.ban_do), lan_key: !!t.lan_public_key, admins });
+      const admins = (await DB.prepare("SELECT name, username, totp_on FROM users WHERE truong_id = ? AND role = 'admin' ORDER BY created_at").bind(t.id).all()).results;
+      return json(200, { slug: t.slug, ten: t.ten, goi: t.goi, het_han: t.het_han, khoa: t.khoa, bat_buoc_2fa: t.bat_buoc_2fa, ban_do: JSON.parse(t.ban_do), lan_key: !!t.lan_public_key, admins });
     }
     if (req.method !== 'POST') return json(404, { error: 'Không tìm thấy' });
     const b = await body(req);
@@ -69,6 +69,7 @@ async function superApi(req, env, p) {
       if (b.ten !== undefined) { set.ten = String(b.ten).trim().slice(0, 120); if (!set.ten) return json(400, { error: 'Chưa nhập tên trường' }); msg.push('tên'); }
       if (b.goi !== undefined) { set.goi = String(b.goi).trim().slice(0, 30) || 'thu'; msg.push('gói ' + set.goi); }
       if (b.het_han !== undefined) { set.het_han = b.het_han ? +b.het_han : null; if (set.het_han !== null && !(set.het_han > 0)) return json(400, { error: 'Hạn dùng không hợp lệ' }); msg.push('hạn dùng'); }
+      if (b.bat_buoc_2fa !== undefined) { set.bat_buoc_2fa = b.bat_buoc_2fa ? 1 : 0; msg.push(set.bat_buoc_2fa ? 'bắt buộc 2 lớp cho admin' : 'bỏ bắt buộc 2 lớp'); }
       if (b.khoa !== undefined) { set.khoa = b.khoa ? 1 : 0; msg.push(set.khoa ? 'TẠM KHOÁ' : 'mở khoá'); }
       if (b.ban_do !== undefined) {
         const m = cleanMap(b.ban_do); if (m.error) return json(400, { error: m.error });
@@ -202,6 +203,9 @@ async function schoolApi(req, env, t, p, ip) {
 
   const user = await currentUser(req, env, t);
   if (!user) return json(403, { error: 'Chưa đăng nhập' });
+  // Trường bắt buộc 2 lớp: admin chưa bật chỉ được làm đúng việc bật 2 lớp (và đăng xuất, xem tên mình)
+  if (t.bat_buoc_2fa && user.role === 'admin' && !user.totp_on && !['t/me', 't/2fa-setup', 't/2fa-enable', 't/password'].includes(a))
+    return json(403, { error: 'Trường bắt buộc xác thực 2 lớp cho admin – hãy bật ngay', need2faSetup: true, user: { name: user.name }, school: { ten: t.ten } });
   if (p[0] === 't') return teacherApi(req, env, t, user, p[1], post);
   if (p[0] === 'admin') {
     if (user.role !== 'admin') return json(403, { error: 'Cần đăng nhập tài khoản admin' });
@@ -293,6 +297,7 @@ async function teacherApi(req, env, t, user, a, post) {
       return json(200, {});
     }
     if (!user.totp_on) return json(400, { error: 'Xác thực 2 lớp chưa bật' });
+    if (t.bat_buoc_2fa && user.role === 'admin') return json(400, { error: 'Trường đang bắt buộc 2 lớp cho admin – không tắt được' });
     if (!same(await hashPw(b.password || '', user.salt), user.hash)) return json(400, { error: 'Mật khẩu không đúng' });
     if (await totpCheck(await unseal(env, user.totp_secret), b.code, user.totp_last) < 0) return json(400, { error: 'Mã xác thực không đúng' });
     await DB.prepare('UPDATE users SET totp_on = 0, totp_secret = NULL, totp_last = 0 WHERE id = ?').bind(user.id).run();
@@ -339,7 +344,7 @@ async function adminApi(req, env, t, user, a, post, stub) {
     ]);
     const now = Date.now(), lanId = t.lan_public_key ? await keyIdOf(t.lan_public_key) : null;
     return json(200, {
-      now, user: { name: user.name, username: user.username, totp: !!user.totp_on }, school: { ten: t.ten, slug: t.slug, goi: t.goi, hetHan: t.het_han, lanKey: !!t.lan_public_key }, map, ktvs: ktvs.results,
+      now, user: { name: user.name, username: user.username, totp: !!user.totp_on }, school: { ten: t.ten, slug: t.slug, goi: t.goi, hetHan: t.het_han, lanKey: !!t.lan_public_key, batBuoc2fa: !!t.bat_buoc_2fa }, map, ktvs: ktvs.results,
       users: users.results.map(u => ({ id: u.id, name: u.name, username: u.username, role: u.role, createdAt: u.created_at, examCount: u.exam_count, totp: !!u.totp_on })),
       exams: exams.results.map(e => {
         const l = live.live[e.id] || {}, mine = rooms.results.filter(r => r.bai_id === e.id), st = live.rooms[e.id] || {};
@@ -423,6 +428,13 @@ async function adminApi(req, env, t, user, a, post, stub) {
     if (!k) return json(404, { error: 'Không tìm thấy kỹ thuật viên' });
     await DB.batch([DB.prepare('DELETE FROM ktv WHERE id = ?').bind(k.id), DB.prepare('UPDATE phong SET ktv_id = NULL WHERE ktv_id = ? AND truong_id = ?').bind(k.id, t.id)]);
     await log(env, t.id, `${who}: xoá kỹ thuật viên ${k.name} (các phòng của người này thành chưa phân)`);
+    return json(200, {});
+  }
+  if (a === 'bat-buoc-2fa') {
+    const on = !!b.on;
+    if (on && !user.totp_on) return json(400, { error: 'Hãy bật xác thực 2 lớp cho chính tài khoản của bạn trước' });
+    await DB.prepare('UPDATE truong SET bat_buoc_2fa = ? WHERE id = ?').bind(on ? 1 : 0, t.id).run();
+    await log(env, t.id, `${who}: ${on ? 'BẮT BUỘC' : 'bỏ bắt buộc'} xác thực 2 lớp cho admin`);
     return json(200, {});
   }
   if (a === 'ban-do') {

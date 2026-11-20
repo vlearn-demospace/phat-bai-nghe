@@ -18,6 +18,12 @@ header .chips{margin-left:auto}
 
 <div id="lostConn" class="hidden note err" style="margin:0;border-radius:0;font-weight:600;padding:12px clamp(16px,3vw,44px)">⚠ Mất kết nối với máy chủ – kiểm tra mạng Internet. Trang sẽ tự kết nối lại.</div>
 
+<main id="forceView" class="hidden">
+  <div class="note warn" style="margin:0"><b id="forceWho"></b>: trường đã bật <b>bắt buộc xác thực 2 lớp cho admin</b>. Bật ngay bên dưới để tiếp tục dùng trang admin.</div>
+  <div id="forceSlot"></div>
+  <button class="b-ghost" id="btnForceOut">Đăng xuất</button>
+</main>
+
 <main id="loginView" class="hidden">
   <div class="card" style="width:100%;max-width:420px;margin:40px auto 0">
     <h2>Đăng nhập admin</h2>
@@ -152,13 +158,18 @@ header .chips{margin-left:auto}
     </div>
     <div id="tfaOn" class="hidden">
       <div class="note ok">✓ Đang bật. Đăng nhập cần mã trên điện thoại. Các máy khác đã bị đăng xuất lúc bật.</div>
-      <details><summary class="small">Tắt xác thực 2 lớp</summary>
+      <details id="tfaOffDetails"><summary class="small">Tắt xác thực 2 lớp</summary>
         <div class="row"><div><label for="tfaPw">Mật khẩu</label><input type="password" id="tfaPw" autocomplete="current-password"></div>
         <div><label for="tfaOffCode">Mã 6 số</label><input type="text" id="tfaOffCode" inputmode="numeric" maxlength="7"></div></div>
         <button class="b-red" id="btnTfaOff">Tắt</button>
       </details>
     </div>
     <div id="tfaMsg" class="note hidden"></div>
+    <div id="forceBox" style="margin-top:18px;padding-top:14px;border-top:1px solid rgb(var(--line))">
+      <h3>Bắt buộc 2 lớp cho mọi admin của trường</h3>
+      <p class="mute small" id="forceInfo"></p>
+      <button class="b-dark" id="btnForce"></button>
+    </div>
   </div>
   <div class="card">
     <h2>Sơ đồ phòng</h2>
@@ -218,7 +229,7 @@ function setHtml(el, html) { if (el._h !== html) { el.innerHTML = html; el._h = 
 async function api(a, body) {
   const r = await fetch(BASE + '/api/admin/' + a, { method: body !== undefined ? 'POST' : 'GET', body: body !== undefined ? JSON.stringify(body) : undefined, headers: body !== undefined ? { 'Content-Type': 'application/json' } : {}, cache: 'no-store' });
   const d = await r.json().catch(() => ({}));
-  if (!r.ok) { const e = new Error(d.error || 'Lỗi ' + r.status); e.code = r.status; throw e; }
+  if (!r.ok) { const e = new Error(d.error || 'Lỗi ' + r.status); e.code = r.status; e.data = d; throw e; }
   return d;
 }
 const act = async (a, body) => { try { const d = await api(a, body); await refresh(); return d; } catch (e) { alert(e.code ? e.message : 'Mất kết nối với máy chủ.'); } };
@@ -230,6 +241,7 @@ async function refresh() {
   try { S = await api('status'); S.hasKey = true; show('lostConn', false); }
   catch (e) {
     show('lostConn', !e.code);
+    if (e.data?.need2faSetup) return forceSetup(e.data);
     if (e.code === 403) { show('loginView', true); show('app', false); show('tabs', false); }
     return;
   }
@@ -247,6 +259,16 @@ function render() {
   $('schoolName').textContent = S.school.ten; document.title = 'Admin – ' + S.school.ten; $('gHint').textContent = baseUrl() + '/g';
   fillMap();
   if (!tfaBusy) { show('tfaOff', !S.user.totp); show('tfaOn', S.user.totp); }
+  { const admins = S.users.filter(u => u.role === 'admin'), no = admins.filter(u => !u.totp).map(u => u.name);
+    $('forceInfo').textContent = S.school.batBuoc2fa
+      ? 'Đang bắt buộc: admin chưa bật 2 lớp phải bật ngay khi đăng nhập, và không ai tắt được 2 lớp.' + (no.length ? ' Chưa bật: ' + no.join(', ') + '.' : ' Mọi admin đã bật.')
+      : 'Khi bật: admin nào chưa có 2 lớp sẽ phải bật ngay sau khi nhập đúng mật khẩu, trước khi làm việc khác. Giáo viên không bị ảnh hưởng.' + (no.length ? ' Hiện chưa bật: ' + no.join(', ') + '.' : '');
+    $('btnForce').textContent = S.school.batBuoc2fa ? 'Bỏ bắt buộc' : 'Bắt buộc 2 lớp cho admin';
+    $('btnForce').className = S.school.batBuoc2fa ? 'b-light' : 'b-dark';
+    $('btnForce').disabled = !S.school.batBuoc2fa && !S.user.totp;
+    if (!S.school.batBuoc2fa && !S.user.totp) $('forceInfo').textContent += ' Hãy bật 2 lớp cho chính bạn trước.';
+    show('tfaOffDetails', !S.school.batBuoc2fa);
+  }
 
   // ----- Bài nghe
   show('noExam', !ex.length); show('examTbl', !!ex.length);
@@ -356,7 +378,20 @@ $('btnSchoolNew').onclick = () => { if (confirm('Gỡ khoá LAN? Bài đăng sau
 $('btnKeyAgain').onclick = () => lastKey && downloadKey(lastKey);
 
 // ---------- Xác thực 2 lớp ----------
-let tfaBusy = false;
+let tfaBusy = false, forced = false;
+function forceSetup(d) {   // trường bắt buộc 2 lớp mà admin này chưa bật: chỉ hiện phần bật 2 lớp
+  forced = true;
+  ['loginView', 'app', 'tabs'].forEach(id => show(id, false));
+  $('forceWho').textContent = d.user.name; $('schoolName').textContent = d.school.ten;
+  if ($('tfaCard').parentNode !== $('forceSlot')) { $('forceSlot').appendChild($('tfaCard')); show('forceBox', false); show('tfaOn', false); show('tfaOff', true); }
+  show('forceView', true);
+}
+$('btnForceOut').onclick = () => $('btnOut').click();
+$('btnForce').onclick = async () => {
+  const on = !S.school.batBuoc2fa;
+  if (on && !confirm('Bắt buộc mọi admin của trường dùng xác thực 2 lớp?')) return;
+  try { await api('bat-buoc-2fa', { on }); await refresh(); } catch (e) { tfaNote(e.message, 'err'); }
+};
 const tfaNote = (text, kind = '') => { const el = $('tfaMsg'); el.className = 'note ' + kind; el.textContent = text; show('tfaMsg', !!text); };
 const tpost = async (a, body) => {
   const r = await fetch(BASE + '/api/t/' + a, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
@@ -375,7 +410,7 @@ $('btnTfaSetup').onclick = async () => {
 };
 $('btnTfaCancel').onclick = () => { tfaBusy = false; show('tfaSetup', false); $('tfaQr').innerHTML = ''; tfaNote(''); refresh(); };
 $('btnTfaEnable').onclick = async () => {
-  try { await tpost('2fa-enable', { code: $('tfaCode').value }); tfaBusy = false; show('tfaSetup', false); $('tfaQr').innerHTML = ''; tfaNote(''); await refresh(); }
+  try { await tpost('2fa-enable', { code: $('tfaCode').value }); if (forced) return location.reload(); tfaBusy = false; show('tfaSetup', false); $('tfaQr').innerHTML = ''; tfaNote(''); await refresh(); }
   catch (e) { tfaNote(e.message, 'err'); }
 };
 $('tfaCode').onkeydown = e => { if (e.key === 'Enter') $('btnTfaEnable').click(); };

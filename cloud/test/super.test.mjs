@@ -28,7 +28,7 @@ test('tạo trường: sơ đồ lỗi bị từ chối, sơ đồ đúng đư�
   assert.equal(r.status, 200);
   S.pw = r.data.password;
   const one = await sup('truong/sa');
-  assert.equal(one.data.ten, 'Trường SA'); assert.deepEqual(one.data.admins, [{ name: 'Admin', username: 'admin' }]);
+  assert.equal(one.data.ten, 'Trường SA'); assert.deepEqual(one.data.admins, [{ name: 'Admin', username: 'admin', totp_on: 0 }]); assert.equal(one.data.bat_buoc_2fa, 0);
   assert.equal(one.data.ban_do[0].floors[0].rooms.length, 5);
 });
 

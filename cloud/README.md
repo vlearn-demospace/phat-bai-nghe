@@ -103,6 +103,9 @@ Giới hạn: bản LAN chia đợt theo sơ đồ cài sẵn trong `server.js` 
 - **Xác thực 2 lớp** (TOTP, dùng Google/Microsoft Authenticator): mỗi admin tự bật ở tab "Cài đặt trường" bằng mã QR.
   Mỗi mã 6 số chỉ dùng được một lần. Mất điện thoại: admin khác đặt lại mật khẩu, hoặc VLearn cấp lại ở `/_` – việc này gỡ luôn 2 lớp.
   Danh sách tài khoản ghi rõ admin nào chưa bật.
+- **Bắt buộc 2 lớp cho admin** (tuỳ chọn theo trường; admin trường bật ở tab "Cài đặt trường" sau khi chính mình đã bật 2 lớp,
+  hoặc VLearn bật ở `/_`): admin chưa có 2 lớp nhập đúng mật khẩu xong chỉ thấy màn hình bật 2 lớp, mọi việc khác bị chặn đến khi bật xong;
+  không ai tắt được 2 lớp khi đang bắt buộc. Giáo viên không bị ảnh hưởng.
 - **Đăng nhập sai**: 10 lần/tài khoản hoặc 20 lần/IP trong 15 phút thì khoá 15 phút (đếm trên D1). Đặt lại mật khẩu thì mở khoá.
   Thêm Rate Limiting của Cloudflare: 30 lần đăng nhập/phút/IP. Phiên admin 7 ngày, giáo viên 30 ngày.
 - **Mã phòng** chỉ dùng được từ 24 giờ trước giờ thi đến 3 giờ sau khi bài thi xong. Mã sai và mã ngoài giờ trả cùng một câu,
@@ -111,4 +114,4 @@ Giới hạn: bản LAN chia đợt theo sơ đồ cài sẵn trong `server.js` 
 ## Chưa làm
 - Thu tiền (gói cước đã có trường `goi`, `het_han`; siêu admin gia hạn bằng tay).
 - Bản LAN đọc `data/ban-do.json` trong gói (để trường khác cũng chia đợt khi chạy dự phòng).
-- Tuỳ chọn "bắt buộc 2 lớp cho mọi admin" theo trường; 2 lớp cho siêu admin (hiện chỉ có SUPER_TOKEN).
+- 2 lớp cho siêu admin (hiện chỉ có SUPER_TOKEN).

@@ -101,12 +101,41 @@ test('mã phòng chỉ dùng được từ 24 giờ trước giờ thi đến 3 
   assert.equal((await fetch(`${base}/bm/api/login?token=${token}`)).status, 200, 'máy đã vào bằng thẻ vẫn dùng được');
 });
 
+test('bắt buộc 2 lớp cho admin: admin chưa bật chỉ được bật 2 lớp; không ai tắt được', async () => {
+  assert.match((await S.a('/bm/api/admin/bat-buoc-2fa', { body: { on: true } })).data.error, /chính tài khoản của bạn/);
+  const sec = (await S.a('/bm/api/t/2fa-setup', { body: {} })).data.secret;
+  assert.equal((await S.a('/bm/api/t/2fa-enable', { body: { code: phone(sec) } })).status, 200);
+  assert.equal((await S.a('/bm/api/admin/bat-buoc-2fa', { body: { on: true } })).status, 200);
+  assert.equal((await S.a('/bm/api/admin/status')).data.school.batBuoc2fa, true);
+  const pw2 = (await S.a('/bm/api/admin/user-create', { body: { name: 'Phó admin', username: 'admin2', role: 'admin' } })).data.password;
+
+  const b = from('10.4.0.1');
+  assert.equal((await b('/bm/api/t/login', { body: { username: 'admin2', password: pw2 } })).status, 200, 'mật khẩu đúng thì vào, để bật 2 lớp');
+  const st = await b('/bm/api/admin/status');
+  assert.equal(st.status, 403); assert.equal(st.data.need2faSetup, true); assert.equal(st.data.user.name, 'Phó admin');
+  assert.equal((await b('/bm/api/admin/user-create', { body: { name: 'X', username: 'xxx' } })).status, 403, 'chưa bật 2 lớp thì không làm được việc admin');
+  assert.equal((await b('/bm/api/t/upload-start', { body: { size: 1000 } })).status, 403);
+  assert.equal((await b('/bm/api/t/me')).status, 200);
+  const sec2 = (await b('/bm/api/t/2fa-setup', { body: {} })).data.secret;
+  assert.equal((await b('/bm/api/t/2fa-enable', { body: { code: phone(sec2) } })).status, 200);
+  assert.equal((await b('/bm/api/admin/status')).status, 200, 'bật xong dùng được ngay');
+  assert.match((await b('/bm/api/t/2fa-disable', { body: { password: pw2, code: phone(sec2, Math.floor(Date.now() / 30000) + 1) } })).data.error, /bắt buộc/);
+
+  const g = from('10.4.0.2');
+  assert.equal((await g('/bm/api/t/login', { body: { username: 'giaovien', password: S.tp } })).status, 200);
+  assert.equal((await g('/bm/api/t/me')).status, 200, 'giáo viên không bị ảnh hưởng');
+
+  assert.equal((await sup('truong/bm')).data.bat_buoc_2fa, 1);
+  assert.equal((await sup('truong/bm', { bat_buoc_2fa: false })).status, 200);
+  assert.equal((await S.a('/bm/api/admin/status')).data.school.batBuoc2fa, false);
+});
+
 test('giới hạn tần suất: quá 30 lần đăng nhập/phút từ một IP bị chặn ngay', async () => {
   const b = from('10.3.0.1');
   const codes = [];
   for (let i = 0; i < 35; i++) codes.push((await b('/bm/api/t/login', { body: { username: 'khongco' + i, password: 'x' } })).status);
   assert.ok(codes.includes(429), codes.join(','));
-  const r = await b('/bm/api/t/login', { body: { username: 'admin', password: S.pw } });
+  const r = await b('/bm/api/t/login', { body: { username: 'giaovien', password: S.tp } });
   assert.equal(r.status, 429);
-  assert.equal((await from('10.3.0.2')('/bm/api/t/login', { body: { username: 'admin', password: S.pw } })).status, 200, 'IP khác vẫn vào được');
+  assert.equal((await from('10.3.0.2')('/bm/api/t/login', { body: { username: 'giaovien', password: S.tp } })).status, 200, 'IP khác vẫn vào được');
 });

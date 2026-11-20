@@ -43,6 +43,7 @@ td .mini{margin:0}
       <div><label for="eGoi">Gói</label><input type="text" id="eGoi" maxlength="30" placeholder="thu, nam-hoc, ..."></div>
       <div><label for="eHan">Hạn dùng (để trống = không hạn)</label><input type="date" id="eHan"></div>
     </div>
+    <label class="check"><input type="checkbox" id="e2fa"> Bắt buộc xác thực 2 lớp cho mọi admin của trường (admin chưa bật phải bật ngay khi đăng nhập)</label>
     <label class="check"><input type="checkbox" id="eKhoa"> Tạm khoá trường (mọi trang của trường báo "tạm khoá", kể cả máy phòng – không dùng giữa buổi thi)</label>
     <label for="eMap">Sơ đồ phòng</label>
     <textarea id="eMap" rows="10" spellcheck="false" class="mono"></textarea>
@@ -133,9 +134,9 @@ async function openEdit(slug) {
     const t = await call('truong/' + encodeURIComponent(slug));
     editing = t;
     $('editTitle').textContent = `Sửa trường: ${t.ten} (${t.slug})`;
-    $('eTen').value = t.ten; $('eGoi').value = t.goi; $('eHan').value = fromDate(t.het_han); $('eKhoa').checked = !!t.khoa;
+    $('eTen').value = t.ten; $('eGoi').value = t.goi; $('eHan').value = fromDate(t.het_han); $('eKhoa').checked = !!t.khoa; $('e2fa').checked = !!t.bat_buoc_2fa;
     $('eMap').value = BanDo.format(t.ban_do); $('ePreview').innerHTML = '';
-    $('eAdmins').textContent = 'Admin hiện có: ' + (t.admins.map(a => `${a.name} (${a.username})`).join(', ') || 'chưa có') + '. Cấp mật khẩu mới sẽ đăng xuất admin đó khỏi mọi máy và gỡ xác thực 2 lớp (dùng khi mất điện thoại).';
+    $('eAdmins').textContent = 'Admin hiện có: ' + (t.admins.map(a => `${a.name} (${a.username}${a.totp_on ? ', 2 lớp' : ''})`).join(', ') || 'chưa có') + '. Cấp mật khẩu mới sẽ đăng xuất admin đó khỏi mọi máy và gỡ xác thực 2 lớp (dùng khi mất điện thoại).';
     $('rUser').value = t.admins[0]?.username || 'admin'; $('rName').value = '';
     note('eMsg', ''); note('rMsg', '');
     show('editCard', true); $('editCard').scrollIntoView({ behavior: 'smooth' });
@@ -145,7 +146,7 @@ $('btnClose').onclick = () => { editing = null; show('editCard', false); };
 $('btnPreview').onclick = () => { try { $('ePreview').innerHTML = BanDo.html(BanDo.parse($('eMap').value)); note('eMsg', ''); } catch (e) { note('eMsg', esc(e.message), 'err'); } };
 $('btnSave').onclick = async () => {
   if (!editing) return;
-  const b = { ten: $('eTen').value, goi: $('eGoi').value, het_han: toDate($('eHan').value), khoa: $('eKhoa').checked };
+  const b = { ten: $('eTen').value, goi: $('eGoi').value, het_han: toDate($('eHan').value), khoa: $('eKhoa').checked, bat_buoc_2fa: $('e2fa').checked };
   const mapNow = $('eMap').value;
   if (mapNow !== BanDo.format(editing.ban_do)) { try { b.ban_do = BanDo.parse(mapNow); } catch (e) { return note('eMsg', esc(e.message), 'err'); } }
   if (b.khoa && !editing.khoa && !confirm(`Tạm khoá trường ${editing.ten}? Máy phòng đang thi cũng sẽ không lấy được khoá.`)) return;
