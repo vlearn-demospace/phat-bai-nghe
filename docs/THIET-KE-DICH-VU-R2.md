@@ -1,6 +1,6 @@
 # Thiết kế: Phát bài nghe – phiên bản dịch vụ trên Cloudflare (R2 + Workers)
 
-*Bản nháp để duyệt – 20/11/2026. Chưa có mã; các mục "Quyết định mở" cần người dùng chọn.*
+*Bản nháp để duyệt – 20/11/2026. Chưa có mã. Các quyết định đã chốt ở mục 9.*
 
 ## 1. Mục tiêu và nguyên tắc giữ nguyên
 
@@ -24,7 +24,7 @@ Cloudflare Worker "phat-bai-nghe"  ── phục vụ trang tĩnh (Static Assets
    │            │                         │
    ▼            ▼                         ▼
   D1          R2 bucket                 Durable Object "Truong" (1 đối tượng / trường)
- (dữ liệu     (bản mã:                   - đồng hồ mở khoá, khoá bài trong ngày thi
+ (dữ liệu     (bản mã:                   - đồng hồ mở khoá, khoá bài đã mở (đến hết bài)
   lâu dài)    t/<trường>/<bài>.enc)      - lệnh phát, đợt 1/đợt 2, trạng thái các phòng
                                          - WebSocket máy phòng & admin (Hibernation API)
                                          - đếm nhập sai mã, chặn dò
@@ -34,7 +34,7 @@ Cloudflare Worker "phat-bai-nghe"  ── phục vụ trang tĩnh (Static Assets
 |---|---|---|
 | **R2** | Bản mã các bài nghe | Không tính phí tải xuống; bản mã an toàn kể cả khi lộ. |
 | **D1** (SQLite) | Trường, tài khoản (băm mật khẩu), bài nghe (siêu dữ liệu, `wrappedKey`), lịch, phân phòng, mã phòng, KTV, sơ đồ trường, nhật ký | Dữ liệu quan hệ, truy vấn chéo cho siêu admin. |
-| **Durable Object `Truong`** | Trạng thái "sống" của một trường: khoá bài đã nạp, lệnh phát, trạng thái phòng, phiên WebSocket | Một luồng xử lý duy nhất cho mỗi trường → một đồng hồ, không tranh chấp; thay cho các biến `live`, `masterKey` trong RAM của `server.js`. Có `alarm()` để tự xoá khoá sau buổi thi. |
+| **Durable Object `Truong`** | Trạng thái "sống" của một trường: khoá bài đã mở, lệnh phát, trạng thái phòng, phiên WebSocket | Một luồng xử lý duy nhất cho mỗi trường → một đồng hồ, không tranh chấp; thay cho các biến `live`, `masterKey` trong RAM của `server.js`. Có `alarm()` để xoá khoá bài khỏi bộ nhớ sau buổi thi. |
 | **Worker** | Định tuyến, đăng nhập, nhận file tải lên (chuyển thẳng sang R2), cấp file cho phòng | Không trạng thái. |
 
 Không dùng KV (D1 + DO đủ; KV nhất quán chậm, không hợp cho đồng hồ mở khoá).
@@ -47,7 +47,24 @@ Không dùng KV (D1 + DO đủ; KV nhất quán chậm, không hợp cho đồng
 
 Vấn đề: bản hiện tại giữ **khoá riêng của trường trong RAM** máy chủ. Worker không có RAM lâu dài, và đưa khoá riêng của trường lên Cloudflare thì nhà cung cấp dịch vụ (VLearn) đọc được mọi bài của mọi kỳ.
 
-**Đề xuất (phương án A – "nạp khoá trong trình duyệt"):**
+### Đã chọn: phương án B – "tự động" (không USB, không nạp khoá)
+1. Mỗi trường có **một cặp khoá RSA-OAEP 3072 do dịch vụ tạo** khi tạo trường. Khoá công khai lưu D1; khoá riêng được bọc (AES-GCM) bằng **khoá chủ của dịch vụ** nằm trong Workers Secret, bản bọc lưu D1. Khoá chủ không bao giờ trả ra ngoài, không ghi nhật ký.
+2. *Giáo viên đăng bài*: trình duyệt mã hoá file bằng khoá AES ngẫu nhiên, bọc khoá AES bằng khoá công khai của trường (`wrappedKey`), tải bản mã lên R2 – giống hiện nay, chỉ khác khoá công khai do dịch vụ cấp.
+3. *Admin xếp lịch, phân phòng, in phiếu* – như bây giờ. **Bỏ bước "Tạo khoá trường" và "Nạp khoá" sáng ngày thi.**
+4. *Máy phòng xin khoá*: yêu cầu đi vào DO `Truong`. DO so `Date.now()` (giờ Cloudflare) với `t0`; chưa đến giờ → từ chối, ghi nhật ký. Đến giờ → DO mới mở khoá chủ → khoá riêng trường → khoá bài, giữ khoá bài trong bộ nhớ DO đến hết bài để trả cho các phòng còn lại, rồi xoá. Admin trường vẫn có nút mở khoá khẩn cấp.
+5. **Chỉ một chỗ trong mã** được phép mở khoá bài (hàm trong DO, có kiểm tra giờ); kiểm thử tự động chứng minh không có đường API nào trả khoá trước giờ. Mọi lần mở khoá ghi nhật ký kèm giờ, phòng, IP – admin trường xem được.
+6. Xác minh bài mở được: ngay khi giáo viên đăng xong, DO thử mở khoá + giải mã thử (thay cho bước "kiểm tra khi nạp khoá" hiện nay) rồi xoá khoá khỏi bộ nhớ – lỗi thì báo giáo viên đăng lại ngay, không đợi đến ngày thi.
+
+Đánh đổi đã chấp nhận: VLearn (người có quyền vào tài khoản Cloudflare và khoá chủ) **về kỹ thuật** mở được mọi bài trước giờ. Giảm thiểu:
+- Tài khoản Cloudflare chạy dịch vụ chỉ một người giữ, bật xác thực 2 lớp; không ai khác có quyền đọc Secret (Cloudflare không cho đọc lại Secret sau khi đặt).
+- Mỗi trường một khoá riêng → lộ một trường không kéo theo trường khác; đổi khoá trường được (bài chưa thi phải đăng lại, như hiện nay).
+- Điều khoản dịch vụ ghi rõ cam kết và cơ chế này cho trường biết trước khi đăng ký.
+- Giai đoạn sau có thể thêm **chế độ tăng cường** cho trường nào cần (phương án A dưới đây).
+
+### Khoá dự phòng cho bản LAN
+Vì vẫn giữ bản LAN làm dự phòng: trường có thể (không bắt buộc) tạo một **khoá LAN** như hiện nay (tải file khoá về USB, chỉ khoá công khai lên dịch vụ). Khi đó trình duyệt giáo viên bọc khoá bài **hai lần**: một cho dịch vụ, một cho khoá LAN. Ngày thi nếu mất mạng/Cloudflare sự cố: admin tải "gói dự phòng" (bản mã + `wrappedKey` LAN, không chứa khoá) từ hôm trước, mở `server.js`, nạp file khoá LAN từ USB – đúng quy trình hiện nay.
+
+### Phương án A – "nạp khoá trong trình duyệt" (để dành cho chế độ tăng cường)
 1. *Tạo khoá trường*: trình duyệt admin tạo cặp RSA-OAEP 3072; khoá công khai lên D1, khoá riêng tải về thành file (USB) – như bây giờ.
 2. *Giáo viên đăng bài*: mã hoá file bằng khoá AES ngẫu nhiên, bọc khoá AES bằng khoá công khai trường (`wrappedKey`), tải bản mã lên R2 – như bây giờ.
 3. *Admin xếp lịch, phân phòng, in phiếu* – như bây giờ (dữ liệu ở D1).
@@ -56,9 +73,7 @@ Vấn đề: bản hiện tại giữ **khoá riêng của trường trong RAM**
 6. Máy phòng xin khoá: DO so `Date.now()` (giờ Cloudflare) với `t0` của bài; chưa đến giờ → từ chối và ghi nhật ký; đến giờ → trả khoá. Admin có nút mở khoá khẩn cấp.
 7. Admin có nút "Gỡ khoá khỏi máy chủ" (xoá ngay khỏi DO).
 
-Kết quả: Cloudflare/VLearn chỉ có thể đọc **các bài của đúng ngày thi đó, từ lúc admin nạp khoá đến khi tự xoá** – hẹp hơn bản hiện tại (máy chủ giữ khoá trường, mở được mọi bài). Đổi lại vẫn cần thao tác USB mỗi sáng thi.
-
-**Phương án B – "tự động"** (để người dùng cân nhắc): giáo viên bọc khoá bài bằng khoá công khai **của dịch vụ** (khoá riêng nằm trong Workers Secret); không cần USB, không cần nạp khoá. Đơn giản cho trường hơn nhiều, nhưng nhà cung cấp dịch vụ về mặt kỹ thuật mở được mọi bài bất kỳ lúc nào → trường phải tin VLearn. Có thể cho mỗi trường tự chọn A hoặc B.
+Kết quả: Cloudflare/VLearn chỉ có thể đọc **các bài của đúng ngày thi đó, từ lúc admin nạp khoá đến khi tự xoá**. Đổi lại vẫn cần thao tác USB mỗi sáng thi. Không làm trong MVP.
 
 *Hướng nghiên cứu sau (không làm trong MVP):* mã hoá khoá bài theo mốc thời gian của mạng drand (timelock, "tlock") – không ai giữ khoá trước giờ, kể cả VLearn; nhưng không mở khoá khẩn cấp sớm được và phụ thuộc mạng drand.
 
@@ -79,8 +94,8 @@ Kết quả: Cloudflare/VLearn chỉ có thể đọc **các bài của đúng n
 
 | Vai | Phạm vi | Làm được |
 |---|---|---|
-| Siêu admin (VLearn) | Toàn dịch vụ | Tạo/khoá trường, tạo admin đầu tiên của trường, xem dung lượng & nhật ký vận hành. **Không** xem mã phòng, không nạp khoá, không phát. |
-| Admin trường | Một trường | Như `/a` hiện nay: tài khoản GV, KTV, sơ đồ, xếp lịch, phiếu mã, nạp khoá, phát. |
+| Siêu admin (VLearn) | Toàn dịch vụ | Tạo/khoá trường, gói cước, tạo admin đầu tiên của trường, xem dung lượng & nhật ký vận hành. Giao diện **không** có chức năng xem mã phòng, mở khoá hay phát. |
+| Admin trường | Một trường | Như `/a` hiện nay: tài khoản GV, KTV, sơ đồ, xếp lịch, phiếu mã, phát, mở khoá khẩn cấp, khoá LAN dự phòng. |
 | Giáo viên | Bài của mình | Đăng, xem, xoá bài chưa xếp lịch, đổi mật khẩu. |
 | KTV (máy phòng) | Một phòng của một bài | Nhập mã → thẻ phòng → tải bản mã, xin khoá, báo trạng thái. |
 
@@ -113,7 +128,8 @@ Ví dụ một buổi thi cỡ LVC: 2 bài × 10 MB, 36 phòng, 3 giờ.
 |---|---|
 | Trường **mất Internet** đúng giờ thi | Bản mã đã tải sớm; chỉ cần mạng lúc xin khoá (vài trăm byte). Giữ **bản LAN `server.js`** làm dự phòng; cho xuất bài + `wrappedKey` từ dịch vụ sang bản LAN. |
 | Cloudflare gặp sự cố toàn cầu | Như trên: dự phòng LAN; khuyến nghị trường nạp khoá và cho phòng tải bản mã từ hôm trước. |
-| Nhà cung cấp (VLearn) bị nghi làm lộ đề | Phương án A: khoá riêng không rời trình duyệt trường, khoá bài chỉ ở DO trong ngày thi rồi tự xoá; nhật ký mọi lượt xin khoá. |
+| Nhà cung cấp (VLearn) bị nghi làm lộ đề – **rủi ro lớn nhất của phương án B** | Khoá chủ chỉ trong Workers Secret, một người giữ tài khoản + 2 lớp; khoá riêng từng trường; nhật ký mọi lần mở khoá; điều khoản nói rõ; sau này có chế độ tăng cường (phương án A). |
+| Lộ khoá chủ của dịch vụ | Đổi khoá chủ = bọc lại khoá riêng các trường (không phải đăng lại bài); quy trình đổi khoá viết sẵn. |
 | Lỗi phân tách trường (trường A thấy dữ liệu trường B) | `truong_id` lấy từ phiên/thẻ; kiểm thử tự động riêng cho việc truy cập chéo. |
 | Dò mã phòng 4 ký tự (32⁴ ≈ 1 triệu tổ hợp) | Đếm sai trong DO + Rate Limiting; mã chỉ hiệu lực trong khung giờ của bài (ví dụ từ 24 giờ trước đến hết bài). |
 | Dữ liệu cá nhân (tên, tài khoản giáo viên) | Lưu tối thiểu; có chính sách bảo vệ dữ liệu theo Nghị định 13/2023/NĐ-CP khi có trường ngoài dùng. |
@@ -134,12 +150,16 @@ Ví dụ một buổi thi cỡ LVC: 2 bài × 10 MB, 36 phòng, 3 giờ.
 - Trang siêu admin, tạo trường, công cụ vẽ sơ đồ phòng, giới hạn theo trường, TOTP cho admin, Rate Limiting, xuất/nhập sang bản LAN, tên miền riêng.
 - Thử với 1–2 trường quen trước khi mở rộng.
 
-**Giai đoạn 3 – vận hành**
-- Thu phí (nếu chọn), giám sát và cảnh báo, sao lưu D1 (Time Travel) định kỳ, tài liệu cho trường, điều khoản sử dụng.
+**Giai đoạn 3 – thu phí và vận hành**
+- Gói cước theo năm học, giới hạn theo gói (số phòng, số bài/kỳ, dung lượng, số tài khoản GV); bảng `goi_cuoc` + hạn dùng trên D1, hết hạn thì chỉ xem, không đăng bài mới (không bao giờ khoá giữa buổi thi).
+- Thu tiền: giai đoạn đầu chuyển khoản + xuất hoá đơn thủ công, siêu admin gia hạn bằng tay; tích hợp cổng thanh toán sau khi có đủ trường.
+- Điều khoản sử dụng, chính sách bảo vệ dữ liệu, cam kết về việc giữ khoá (phương án B).
+- Giám sát và cảnh báo, sao lưu D1 (Time Travel) định kỳ, tài liệu cho trường.
 
-## 9. Quyết định mở (cần người dùng chọn)
-1. **Tên miền**: dùng `*.workers.dev` cho đến khi có trường thứ hai, hay mua tên miền riêng ngay?
-2. **Thu phí**: miễn phí cho trường bạn, hay có gói trả phí (ảnh hưởng tới giai đoạn 3: tài khoản thanh toán, điều khoản)?
-3. **Bản LAN dự phòng**: tiếp tục duy trì `server.js` làm phương án dự phòng (khuyến nghị) hay chỉ còn bản dịch vụ?
-4. **Giữ khoá**: phương án A (USB, nạp khoá mỗi sáng thi – khuyến nghị) hay B (tự động, trường phải tin VLearn), hay cho mỗi trường tự chọn?
-5. **Tài khoản thử**: người dùng tự tạo một tài khoản Cloudflare mới (miễn phí) cho môi trường thử – trong lúc chờ, MVP được phát triển và kiểm thử hoàn toàn trên máy bằng giả lập.
+## 9. Quyết định đã chốt (20/11/2026)
+1. **Giữ khoá: phương án B – tự động** (dịch vụ giữ khoá, mở đúng giờ; trường không cần USB). Phương án A để dành làm chế độ tăng cường.
+2. **Tên miền: `*.workers.dev` trước**, mua tên miền riêng khi có trường thứ hai.
+3. **Có thu phí** – gói trả phí theo năm học (giai đoạn 3); MVP chưa làm phần thanh toán nhưng dữ liệu có sẵn chỗ cho gói cước.
+4. **Giữ bản LAN `server.js` làm dự phòng**, kèm khoá LAN tuỳ chọn và "gói dự phòng".
+
+Còn chờ: người dùng tự tạo **một tài khoản Cloudflare mới (miễn phí)** cho môi trường thử – trong lúc chờ, MVP được phát triển và kiểm thử hoàn toàn trên máy bằng giả lập.
