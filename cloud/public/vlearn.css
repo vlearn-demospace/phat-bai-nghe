@@ -9,6 +9,7 @@
   --chip-navy: 227 232 239; --chip-orange: 253 231 211; --chip-orangeText: 138 69 16; --chip-orangeBorder: 243 201 163;
   --chip-neutral: 242 242 242; --chip-error: 248 224 220; --chip-errorText: 162 59 42; --chip-errorBorder: 235 198 191;
   --shadow-card: 0 8px 24px #0b316214; --shadow-focus: 0 0 0 3px #0b316222;
+  --k0: 37 99 196; --k1: 194 94 10; --k2: 13 128 118; --k3: 124 77 196; --k4: 46 135 60; --k5: 196 52 98; --k6: 140 110 0; --k7: 22 116 160;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) { :root:not(.light) {
@@ -20,6 +21,7 @@
   --chip-navy: 30 52 86; --chip-orange: 66 44 22; --chip-orangeText: 248 189 133; --chip-orangeBorder: 110 72 36;
   --chip-neutral: 36 46 62; --chip-error: 70 32 30; --chip-errorText: 243 160 146; --chip-errorBorder: 112 56 50;
   --shadow-card: 0 8px 24px #00000059; --shadow-focus: 0 0 0 3px #9ec4ff40;
+  --k0: 120 170 255; --k1: 255 168 92; --k2: 80 205 190; --k3: 186 150 255; --k4: 120 210 130; --k5: 255 130 170; --k6: 225 195 80; --k7: 110 200 240;
   color-scheme: dark;
 } }
 /* Máy phòng thi: luôn dùng giao diện tối (màn hình chiếu trong phòng) */
@@ -32,6 +34,7 @@
   --chip-navy: 30 52 86; --chip-orange: 66 44 22; --chip-orangeText: 248 189 133; --chip-orangeBorder: 110 72 36;
   --chip-neutral: 36 46 62; --chip-error: 70 32 30; --chip-errorText: 243 160 146; --chip-errorBorder: 112 56 50;
   --shadow-card: 0 8px 24px #00000059; --shadow-focus: 0 0 0 3px #9ec4ff40;
+  --k0: 120 170 255; --k1: 255 168 92; --k2: 80 205 190; --k3: 186 150 255; --k4: 120 210 130; --k5: 255 130 170; --k6: 225 195 80; --k7: 110 200 240;
   color-scheme: dark;
 }
 
@@ -138,23 +141,41 @@ td b { color: rgb(var(--navy-text)); }
 .map .fix { padding: 4px; font-weight: 600; color: rgb(var(--slate)); }
 .map .wc { font-weight: 600; font-size: 11px; color: rgb(var(--slate)); }
 .map .y { background: rgb(var(--page)); color: rgb(var(--navy-text)); font-weight: 700; font-size: 11px; }
-.cell { display: block; width: 100%; height: 100%; min-height: 64px; margin: 0; padding: 4px; border: 0; border-radius: 0; background: rgb(var(--white)); color: rgb(var(--ink)); font-weight: 400; font-size: 12px; line-height: 1.25; }
+.cell { position: relative; display: block; width: 100%; height: 100%; min-height: 64px; margin: 0; padding: 4px; border: 0; border-radius: 0; background: rgb(var(--white)); color: rgb(var(--ink)); font-weight: 400; font-size: 12px; line-height: 1.25; user-select: none; }
 .cell b { display: block; font-size: 14px; color: inherit; } .cell i { display: block; font-style: normal; font-weight: 700; font-size: 11px; margin-top: 2px; }
-.cell:hover:not(:disabled) { box-shadow: inset 0 0 0 2px rgb(var(--navy-text)); }
-.cell:focus-visible { box-shadow: inset 0 0 0 3px rgb(var(--orange)); }
-.cell.none { background: rgb(var(--chip-neutral)); }
-.cell:disabled { background: rgb(var(--page)); color: rgb(var(--slate)); opacity: 1; }
+.cell:hover:not(:disabled):not(.sel) { background: color-mix(in srgb, rgb(var(--bk, var(--navy-text))) 8%, rgb(var(--white))); box-shadow: inset 0 0 0 2px rgb(var(--bk, var(--navy-text))); }
+.cell:focus-visible { outline: 3px solid rgb(var(--orange)); outline-offset: -3px; }
+/* Ô đã chọn: nền nhạt theo màu kỹ thuật viên, viền và dấu ✓ cùng màu */
+.cell.sel { background: color-mix(in srgb, rgb(var(--k)) 16%, rgb(var(--white))); box-shadow: inset 0 0 0 2px rgb(var(--k)); }
+.cell.sel i { color: rgb(var(--k)); }
+.cell.sel::after { content: "✓"; position: absolute; top: 4px; right: 4px; width: 16px; height: 16px; border-radius: 50%; background: rgb(var(--k)); color: rgb(var(--white)); font-size: 10px; font-weight: 700; line-height: 16px; }
+.cell.sel:hover { background: color-mix(in srgb, rgb(var(--k)) 26%, rgb(var(--white))); }
+/* Ô trùng giờ với bài khác: gạch chéo, không bấm được */
+.cell:disabled { background: repeating-linear-gradient(135deg, rgb(var(--page)) 0 6px, rgb(var(--white)) 6px 12px); color: rgb(var(--slate)); opacity: 1; cursor: not-allowed; }
+.map .y button { display: block; width: 100%; height: 100%; min-height: 64px; margin: 0; padding: 2px; border: 0; border-radius: 0; background: none; color: inherit; font: inherit; font-weight: 700; }
+.map .y button:hover { background: rgb(var(--chip-navy)); }
+.map .y button small { display: block; font-weight: 500; font-size: 11px; color: rgb(var(--slate)); }
+.zonehead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+.zonehead h3 { margin: 0; }
 .brushes { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
-.brush { margin: 0; height: 36px; padding: 0 14px; border: 2px solid transparent; border-radius: 9999px; color: rgb(var(--ink)); font-weight: 600; font-size: 13px; }
-.brush.on { border-color: rgb(var(--navy-text)); }
-/* Màu kỹ thuật viên chỉ dùng các tông trong bảng màu; tên KTV luôn hiện trong ô */
-.k0 { background: rgb(var(--chip-navy)); color: rgb(var(--navy-text)); }
-.k1 { background: rgb(var(--chip-orange)); color: rgb(var(--chip-orangeText)); }
-.k2 { background: rgb(var(--navy)); color: #fff; }
-.k3 { background: rgb(var(--orange)); color: rgb(var(--on-orange)); }
-.k4 { background: rgb(var(--mist)); color: rgb(var(--navy-text)); }
-.k5 { background: rgb(var(--today)); color: rgb(var(--chip-orangeText)); box-shadow: inset 0 0 0 1px rgb(var(--chip-orangeBorder)); }
-.k6 { background: rgb(var(--slate)); color: #fff; }
-.k7 { background: rgb(var(--rowhover)); color: rgb(var(--navy-text)); box-shadow: inset 0 0 0 1px rgb(var(--navy-text)); }
+.brush { display: inline-flex; align-items: center; gap: 8px; margin: 0; height: 36px; padding: 0 12px; border: 1px solid rgb(var(--line)); border-radius: 9999px; background: rgb(var(--white)); color: rgb(var(--ink)); font-weight: 600; font-size: 13px; }
+.brush:hover { background: rgb(var(--rowhover)); }
+.brush .dot { width: 12px; height: 12px; border-radius: 50%; background: rgb(var(--k)); flex: none; }
+.brush .n { min-width: 20px; padding: 0 6px; border-radius: 9999px; background: rgb(var(--page)); font-size: 12px; line-height: 20px; }
+.brush.on { background: color-mix(in srgb, rgb(var(--k)) 16%, rgb(var(--white))); border: 2px solid rgb(var(--k)); padding: 0 11px; }
+.brush.on .n { background: rgb(var(--k)); color: rgb(var(--white)); }
+.paintnote { font-size: 13px; color: rgb(var(--slate)); margin: 4px 0 0; }
+.paintnote b { color: rgb(var(--ink)); }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: rgb(var(--slate)); margin: 6px 0 2px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 18px; height: 14px; border: 1px solid rgb(var(--mist)); display: inline-block; }
+.ktvsum { display: grid; gap: 6px; margin: 4px 0 12px; }
+.ktvsum div { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; font-size: 13px; }
+.ktvsum .dot { width: 10px; height: 10px; border-radius: 50%; background: rgb(var(--k)); flex: none; align-self: center; }
+.ktvsum .rooms { color: rgb(var(--slate)); }
+/* Màu kỹ thuật viên: 8 tông dễ phân biệt (sáng/tối riêng); tên KTV luôn hiện trong ô */
+.k0 { --k: var(--k0); } .k1 { --k: var(--k1); } .k2 { --k: var(--k2); } .k3 { --k: var(--k3); }
+.k4 { --k: var(--k4); } .k5 { --k: var(--k5); } .k6 { --k: var(--k6); } .k7 { --k: var(--k7); }
+.none { --k: var(--slate); }
 
 @media print { :root { color-scheme: light; } }

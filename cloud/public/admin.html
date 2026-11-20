@@ -61,11 +61,15 @@ header .chips{margin-left:auto}
     </div>
     <p class="mute small">Giờ tính theo đồng hồ của máy tính này: <b id="tzInfo"></b>. Máy phòng thi luôn dùng giờ máy chủ (Cloudflare). Mã của các phòng đã có được giữ nguyên khi đổi lịch.</p>
     <h3 style="margin-top:18px">Phân phòng cho kỹ thuật viên</h3>
-    <p class="mute small">Chọn một kỹ thuật viên, rồi bấm vào các ô trên sơ đồ. Bấm lại ô đó để bỏ. Ô ghi “Trùng” là phòng đã dùng cho bài khác cùng giờ.</p>
+    <p class="mute small">1. Chọn kỹ thuật viên. 2. Bấm (hoặc kéo chuột qua) các phòng trên sơ đồ; bấm lại để bỏ. Mỗi người một màu.</p>
     <div class="brushes" id="brushes"></div>
     <div style="display:flex;gap:8px;max-width:420px"><input type="text" id="ktvQuick" maxlength="80" placeholder="Thêm kỹ thuật viên mới"><button id="btnKtvQuick" class="b-light" style="margin:0;white-space:nowrap">Thêm</button></div>
-    <div id="mapBox" style="margin-top:14px"></div>
+    <p class="paintnote" id="paintNote"></p>
+    <div class="legend"><span><i style="background:rgb(var(--white))"></i>Chưa chọn</span><span><i style="background:color-mix(in srgb, rgb(var(--k0)) 16%, rgb(var(--white)));box-shadow:inset 0 0 0 2px rgb(var(--k0))"></i>Đã chọn (màu của kỹ thuật viên)</span><span><i style="background:repeating-linear-gradient(135deg, rgb(var(--page)) 0 3px, rgb(var(--white)) 3px 6px)"></i>Trùng giờ với bài khác</span></div>
+    <div id="mapBox"></div>
+    <div class="ktvsum" id="ktvSum"></div>
     <div class="mute small" id="mapSum"></div>
+    <button id="btnClearRooms" class="mini b-light hidden" style="margin-top:6px">Bỏ chọn tất cả</button><br>
     <button id="btnSched" class="b-primary">Lưu lịch và phân phòng</button>
     <button id="btnSchedX" class="b-grey">Đóng</button>
     <div id="schedErr" class="note err hidden"></div>
@@ -532,29 +536,73 @@ function clashes() {   // phòng -> tên bài trùng giờ
   for (const o of S.exams) if (o.id !== schedId && o.t0 && t0 < o.t0 + span(o) && o.t0 < t0 + span(me)) for (const r of Object.keys(o.codes)) out[r] = o.title;
   return out;
 }
+const brushClass = id => id ? ktvClass(id) : 'none';
+const freeRooms = floors => { const busy = clashes(); return floors.flatMap(f => f.rooms.filter(Boolean).map(c => 'P' + c[0])).filter(r => !busy[r]); };
+// Chọn cả nhóm phòng cho người đang tô; nếu cả nhóm đã thuộc người đó thì bỏ chọn cả nhóm
+function toggleGroup(rooms) {
+  if (!rooms.length) return;
+  const all = rooms.every(r => r in assign && assign[r] === brush);
+  for (const r of rooms) { if (all) delete assign[r]; else assign[r] = brush; }
+  drawMap();
+}
 function drawMap() {
-  setHtml($('brushes'), [...S.ktvs.map(k => `<button class="brush ${ktvClass(k.id)} ${brush === k.id ? 'on' : ''}" data-brush="${k.id}">${esc(k.name)} (${Object.values(assign).filter(v => v === k.id).length})</button>`),
-    `<button class="brush none ${brush === '' ? 'on' : ''}" data-brush="" style="background:#cbd5e1">Chưa phân KTV (${Object.values(assign).filter(v => !v).length})</button>`].join(''));
+  const cnt = id => Object.values(assign).filter(v => v === id).length;
+  setHtml($('brushes'), [...S.ktvs.map(k => ({ id: k.id, name: k.name })), { id: '', name: 'Chưa phân KTV' }].map(k =>
+    `<button class="brush ${brushClass(k.id)} ${brush === k.id ? 'on' : ''}" data-brush="${k.id}" aria-pressed="${brush === k.id}"><span class="dot"></span>${esc(k.name)}<span class="n">${cnt(k.id)}</span></button>`).join(''));
+  $('paintNote').innerHTML = `Đang phân phòng cho: <b>${esc(ktvName(brush) || 'Chưa phân KTV')}</b> – bấm từng ô, kéo chuột qua nhiều ô, hoặc bấm nhãn tầng để chọn cả tầng.`;
+  $('mapBox').style.setProperty('--bk', `var(--${brush ? ktvClass(brush) : 'slate'})`);
   const busy = clashes(), wc = (a) => `<td class="wc">WC<br>${a}</td>`, stairs = '<td class="y">CẦU<br>THANG</td>';
-  setHtml($('mapBox'), S.map.map(z => `<h3>${esc(z.title)}</h3><div class="scroll"><table class="map"><tbody>${z.floors.map(f => `<tr>
-    <td class="y">TẦNG<br>${f.n}</td>${wc('NỮ')}${wc('NAM')}${stairs}<td class="fix">${esc(f.wait)}</td>
-    ${f.rooms.map(c => {
-      if (!c) return stairs;
-      const r = 'P' + c[0], has = r in assign, clash = busy[r];
-      const cls = clash ? '' : !has ? '' : assign[r] ? ktvClass(assign[r]) : 'none';
-      const who = clash ? 'Trùng: ' + clash : has ? (ktvName(assign[r]) || 'Chưa phân KTV') : '';
-      return `<td><button class="cell ${cls}" data-room="${r}" ${clash ? 'disabled' : ''} title="${esc(who)}" aria-pressed="${has}"><b>P.${c[0]}</b>${esc(c[1])}${who ? `<i>${esc(who.length > 22 ? who.slice(0, 21) + '…' : who)}</i>` : ''}</button></td>`;
-    }).join('')}</tr>`).join('')}</tbody></table></div>`).join(''));
+  setHtml($('mapBox'), S.map.map((z, zi) => {
+    const zr = freeRooms(z.floors), zall = zr.length && zr.every(r => r in assign && assign[r] === brush);
+    return `<div class="zonehead"><h3>${esc(z.title)}</h3><button class="mini b-light" data-zone="${zi}">${zall ? 'Bỏ cả khu' : 'Chọn cả khu'}</button></div>
+    <div class="scroll"><table class="map"><tbody>${z.floors.map((f, fi) => {
+      const fr = freeRooms([f]), fall = fr.length && fr.every(r => r in assign && assign[r] === brush);
+      return `<tr>
+      <td class="y"><button data-floor="${zi}.${fi}" title="${fall ? 'Bỏ chọn cả tầng' : 'Chọn cả tầng cho ' + esc(ktvName(brush) || 'Chưa phân KTV')}">TẦNG ${esc(String(f.n))}<small>${fall ? 'bỏ cả tầng' : 'chọn cả tầng'}</small></button></td>${wc('NỮ')}${wc('NAM')}${stairs}<td class="fix">${esc(f.wait)}</td>
+      ${f.rooms.map(c => {
+        if (!c) return stairs;
+        const r = 'P' + c[0], has = r in assign, clash = busy[r];
+        const cls = clash ? '' : has ? 'sel ' + brushClass(assign[r]) : '';
+        const who = clash ? 'Trùng: ' + clash : has ? (ktvName(assign[r]) || 'Chưa phân KTV') : '';
+        return `<td><button class="cell ${cls}" data-room="${r}" ${clash ? 'disabled' : ''} title="${esc(who || 'Bấm để chọn')}" aria-pressed="${has}"><b>P.${c[0]}</b>${esc(c[1])}${who ? `<i>${esc(who.length > 22 ? who.slice(0, 21) + '…' : who)}</i>` : ''}</button></td>`;
+      }).join('')}</tr>`;
+    }).join('')}</tbody></table></div>`;
+  }).join(''));
+  // Tóm tắt: mỗi kỹ thuật viên phụ trách những phòng nào
+  const groups = [...S.ktvs.map(k => k.id), ''].map(id => [id, Object.keys(assign).filter(r => assign[r] === id).sort()]).filter(([, rs]) => rs.length);
+  setHtml($('ktvSum'), groups.map(([id, rs]) => `<div class="${brushClass(id)}"><span class="dot"></span><b>${esc(ktvName(id) || 'Chưa phân KTV')}</b><span class="rooms">${rs.map(roomName).join(', ')} · ${rs.length} phòng</span></div>`).join(''));
   const n = Object.keys(assign).length, un = Object.values(assign).filter(v => !v).length;
   $('mapSum').textContent = n ? `Đã chọn ${n} phòng${un ? `, ${un} phòng chưa có kỹ thuật viên` : ''}.` : 'Chưa chọn phòng nào.';
+  show('btnClearRooms', n > 0);
   $('btnSched').disabled = !n;
 }
-$('mapBox').onclick = ev => {
+// Bấm hoặc kéo chuột để tô; lượt kéo theo thao tác ở ô đầu tiên (thêm hoặc bỏ)
+let paint = null, skipClick = false;
+function paintRoom(r) { if (paint === 'add') assign[r] = brush; else delete assign[r]; }
+$('mapBox').addEventListener('pointerdown', ev => {
+  const b = ev.target.closest('[data-room]'); if (!b || b.disabled || ev.pointerType !== 'mouse' || ev.button !== 0) return;
+  const r = b.dataset.room;
+  paint = r in assign && assign[r] === brush ? 'del' : 'add'; skipClick = true;
+  paintRoom(r); drawMap(); ev.preventDefault();
+});
+$('mapBox').addEventListener('pointerover', ev => {
+  if (!paint) return;
   const b = ev.target.closest('[data-room]'); if (!b || b.disabled) return;
+  const r = b.dataset.room, want = paint === 'add';
+  if (want !== (r in assign && assign[r] === brush)) { paintRoom(r); drawMap(); }
+});
+addEventListener('pointerup', () => { paint = null; setTimeout(() => { skipClick = false; }); });
+$('mapBox').onclick = ev => {
+  const z = ev.target.closest('[data-zone]'), f = ev.target.closest('[data-floor]');
+  if (z) return toggleGroup(freeRooms(S.map[+z.dataset.zone].floors));
+  if (f) { const [zi, fi] = f.dataset.floor.split('.').map(Number); return toggleGroup(freeRooms([S.map[zi].floors[fi]])); }
+  const b = ev.target.closest('[data-room]'); if (!b || b.disabled) return;
+  if (skipClick) { skipClick = false; return; }   // chuột đã xử lý ở pointerdown; còn lại là chạm hoặc bàn phím
   const r = b.dataset.room;
   if (r in assign && assign[r] === brush) delete assign[r]; else assign[r] = brush;
   drawMap();
 };
+$('btnClearRooms').onclick = () => { if (confirm('Bỏ chọn tất cả phòng của bài này?')) { assign = {}; drawMap(); } };
 $('brushes').onclick = ev => { const b = ev.target.closest('[data-brush]'); if (b) { brush = b.dataset.brush; drawMap(); } };
 ['date', 'time'].forEach(id => $(id).oninput = () => { if (schedId) drawMap(); });
 async function addKtv(input, errId) {
