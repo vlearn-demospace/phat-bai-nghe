@@ -1,9 +1,11 @@
 // Worker "phat-bai-nghe": trang tĩnh + API cho nhiều trường.
 // Đường dẫn: /<trường>/a (admin) · /<trường>/g (giáo viên) · /<trường>/ hoặc /<trường>/K7M2 (máy phòng)
-import { json, same, hashPw, randHex, genCode, norm, CODE_LEN, sha256, hex, newSchoolKeys, keyIdOf, checkPublicKeyPem, roomIds, cleanMap, log } from './lib.js';
+import { json, same, hashPw, randHex, genCode, norm, CODE_LEN, sha256, hex, newSchoolKeys, keyIdOf, checkPublicKeyPem, roomIds, cleanMap, log, seal, unseal, base32, totpCheck } from './lib.js';
 export { Truong } from './truong.js';
 
-const SESSION_MS = 30 * 86400000;
+const SESSION_MS = 30 * 86400000;           // giáo viên
+const ADMIN_SESSION_MS = 7 * 86400000;      // admin: phiên ngắn hơn
+const FAIL_IP = 20, FAIL_USER = 10, FAIL_WINDOW = 15 * 60000;   // đăng nhập sai: theo IP / theo tài khoản
 const PART = 8 * 1048576;                  // R2 multipart: mọi phần (trừ phần cuối) cùng cỡ, tối thiểu 5 MiB
 const MAX_FILE = 500 * 1048576;
 const RESERVED = new Set(['api', 'a', 'g', 'static', 'admin', 'www']);
@@ -85,12 +87,13 @@ async function superApi(req, env, p) {
       const u = await DB.prepare('SELECT * FROM users WHERE truong_id = ? AND username = ?').bind(t.id, username).first();
       if (u && u.role !== 'admin') return json(400, { error: 'Tài khoản này là giáo viên, không phải admin' });
       const password = genPassword(), salt = randHex(16), hash = await hashPw(password, salt);
-      if (u) await DB.batch([DB.prepare('UPDATE users SET salt = ?, hash = ? WHERE id = ?').bind(salt, hash, u.id), DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(u.id)]);
+      if (u) await DB.batch([DB.prepare('UPDATE users SET salt = ?, hash = ?, totp_on = 0, totp_secret = NULL, totp_last = 0 WHERE id = ?').bind(salt, hash, u.id),   // mất điện thoại: VLearn cấp lại cả 2 lớp
+        DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(u.id), DB.prepare('DELETE FROM dang_nhap_sai WHERE k = ?').bind(`u:${t.id}:${username}`)]);
       else {
         const name = String(b.name || '').trim().slice(0, 80) || 'Admin';
         await DB.prepare('INSERT INTO users (id, truong_id, name, username, role, salt, hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').bind(randHex(6), t.id, name, username, 'admin', salt, hash, Date.now()).run();
       }
-      await log(env, t.id, `VLearn ${u ? 'cấp lại mật khẩu' : 'tạo'} admin ${username}`);
+      await log(env, t.id, `VLearn ${u ? 'cấp lại mật khẩu (và gỡ xác thực 2 lớp)' : 'tạo'} admin ${username}`);
       return json(200, { username, password });
     }
     return json(404, { error: 'Không tìm thấy' });
@@ -125,7 +128,16 @@ async function currentUser(req, env, t) {
   if (!s || s.exp < Date.now()) return null;
   return env.DB.prepare('SELECT * FROM users WHERE id = ? AND truong_id = ?').bind(s.user_id, t.id).first();
 }
-const blockedLogin = new Map();   // chống dò mật khẩu (theo isolate; máy phòng dùng bộ đếm trong DO)
+// Chống dò mật khẩu: đếm trên D1 nên không mất khi Worker khởi động lại hay chạy nhiều nơi
+async function isBlocked(env, k, max) {
+  const r = await env.DB.prepare('SELECT n, t FROM dang_nhap_sai WHERE k = ?').bind(k).first();
+  return !!r && r.n >= max && Date.now() - r.t < FAIL_WINDOW;
+}
+async function addFail(env, k) {
+  const now = Date.now();
+  await env.DB.prepare(`INSERT INTO dang_nhap_sai (k, n, t) VALUES (?1, 1, ?2)
+    ON CONFLICT(k) DO UPDATE SET n = CASE WHEN ?2 - t > ?3 THEN 1 ELSE n + 1 END, t = CASE WHEN ?2 - t > ?3 THEN ?2 ELSE t END`).bind(k, now, FAIL_WINDOW).run();
+}
 
 async function schoolApi(req, env, t, p, ip) {
   const a = p.join('/'), post = req.method === 'POST', stub = env.TRUONG.get(env.TRUONG.idFromName(t.id));
@@ -155,20 +167,32 @@ async function schoolApi(req, env, t, p, ip) {
   // ---------- Đăng nhập tài khoản ----------
   const path = `/${t.slug}`;
   if (a === 't/login' && post) {
-    const f = blockedLogin.get(ip);
-    if (f && f.n >= 20 && Date.now() - f.t < 600000) return json(429, { error: 'Nhập sai quá nhiều lần, thử lại sau 10 phút' });
-    const b = await body(req), name = String(b.username || '').trim().toLowerCase();
+    if (env.LIMIT && !(await env.LIMIT.limit({ key: 'login:' + ip })).success) return json(429, { error: 'Thử đăng nhập quá nhanh – đợi một phút' });
+    const b = await body(req), name = String(b.username || '').trim().toLowerCase().slice(0, 40);
+    const kIp = 'ip:' + ip, kUser = `u:${t.id}:${name}`;
+    if (await isBlocked(env, kIp, FAIL_IP) || await isBlocked(env, kUser, FAIL_USER)) return json(429, { error: 'Nhập sai quá nhiều lần – thử lại sau 15 phút' });
     const user = await env.DB.prepare('SELECT * FROM users WHERE truong_id = ? AND username = ?').bind(t.id, name).first();
     if (!user || !same(await hashPw(b.password || '', user.salt), user.hash)) {
-      const g = f && Date.now() - f.t < 600000 ? f : { n: 0 }; g.n++; g.t = Date.now(); blockedLogin.set(ip, g);
-      await log(env, t.id, `Đăng nhập tài khoản SAI "${name.slice(0, 40)}" từ ${ip}`);
+      await addFail(env, kIp); await addFail(env, kUser);
+      await log(env, t.id, `Đăng nhập tài khoản SAI "${name}" từ ${ip}`);
       return json(403, { error: 'Sai tên đăng nhập hoặc mật khẩu' });
     }
-    const tok = randHex(32);
-    await env.DB.prepare('INSERT INTO sessions (token_hash, user_id, truong_id, exp) VALUES (?, ?, ?, ?)').bind(await sha256(tok), user.id, t.id, Date.now() + SESSION_MS).run();
-    await log(env, t.id, `${user.name} đăng nhập từ ${ip}`);
+    if (user.totp_on) {   // xác thực 2 lớp
+      if (!b.code) return json(401, { need2fa: true, error: 'Nhập mã 6 số trên ứng dụng xác thực' });
+      const step = await totpCheck(await unseal(env, user.totp_secret), b.code, user.totp_last);
+      if (step < 0) {
+        await addFail(env, kIp); await addFail(env, kUser);
+        await log(env, t.id, `${user.name}: mã xác thực 2 lớp SAI từ ${ip}`);
+        return json(401, { need2fa: true, error: 'Mã xác thực không đúng hoặc đã dùng – đợi mã mới' });
+      }
+      await env.DB.prepare('UPDATE users SET totp_last = ? WHERE id = ?').bind(step, user.id).run();
+    }
+    await env.DB.prepare('DELETE FROM dang_nhap_sai WHERE k = ?').bind(kUser).run();
+    const ms = user.role === 'admin' ? ADMIN_SESSION_MS : SESSION_MS, tok = randHex(32);
+    await env.DB.prepare('INSERT INTO sessions (token_hash, user_id, truong_id, exp) VALUES (?, ?, ?, ?)').bind(await sha256(tok), user.id, t.id, Date.now() + ms).run();
+    await log(env, t.id, `${user.name} đăng nhập từ ${ip}` + (user.totp_on ? ' (2 lớp)' : ''));
     const secure = new URL(req.url).protocol === 'https:' ? '; Secure' : '';
-    return json(200, { role: user.role }, { 'Set-Cookie': `s=${tok}; HttpOnly; SameSite=Lax; Path=${path}; Max-Age=${SESSION_MS / 1000}${secure}` });
+    return json(200, { role: user.role }, { 'Set-Cookie': `s=${tok}; HttpOnly; SameSite=Lax; Path=${path}; Max-Age=${ms / 1000}${secure}` });
   }
   if (a === 't/logout' && post) {
     const tok = cookie(req, 's');
@@ -191,7 +215,7 @@ async function teacherApi(req, env, t, user, a, post) {
   const DB = env.DB;
   if (a === 'me') {
     const exams = (await DB.prepare('SELECT b.*, (SELECT COUNT(*) FROM phong p WHERE p.bai_id = b.id) AS room_count FROM bai b WHERE truong_id = ? AND teacher_id = ? ORDER BY uploaded_at').bind(t.id, user.id).all()).results;
-    return json(200, { now: Date.now(), user: { name: user.name, role: user.role }, school: t.ten, publicKey: t.public_key, keyId: await keyIdOf(t.public_key), lanPublicKey: t.lan_public_key || null, lanKeyId: t.lan_public_key ? await keyIdOf(t.lan_public_key) : null, part: PART,
+    return json(200, { now: Date.now(), user: { name: user.name, role: user.role, totp: !!user.totp_on }, school: t.ten, publicKey: t.public_key, keyId: await keyIdOf(t.public_key), lanPublicKey: t.lan_public_key || null, lanKeyId: t.lan_public_key ? await keyIdOf(t.lan_public_key) : null, part: PART,
       exams: exams.map(e => ({ id: e.id, title: e.title, size: e.size, dur: e.dur, uploadedAt: e.uploaded_at, t0: e.t0, roomCount: e.room_count, verified: e.verified })) });
   }
   if (post && a === 'upload-start') {
@@ -250,6 +274,31 @@ async function teacherApi(req, env, t, user, a, post) {
     await deleteExam(env, t, e); await log(env, t.id, `${user.name} xoá bài "${e.title}"`);
     return json(200, {});
   }
+  if (post && (a === '2fa-setup' || a === '2fa-enable' || a === '2fa-disable')) {
+    const b = await body(req);
+    if (a === '2fa-setup') {   // tạo khoá mới (chưa bật cho đến khi nhập đúng mã)
+      if (user.totp_on) return json(400, { error: 'Xác thực 2 lớp đang bật' });
+      const secret = crypto.getRandomValues(new Uint8Array(20));
+      await DB.prepare('UPDATE users SET totp_secret = ?, totp_last = 0 WHERE id = ?').bind(await seal(env, secret), user.id).run();
+      const label = encodeURIComponent(`Phát bài nghe (${t.slug}):${user.username}`);
+      return json(200, { secret: base32(secret), uri: `otpauth://totp/${label}?secret=${base32(secret)}&issuer=${encodeURIComponent('Phát bài nghe')}&digits=6&period=30` });
+    }
+    if (a === '2fa-enable') {
+      if (user.totp_on || !user.totp_secret) return json(400, { error: 'Bấm "Bật xác thực 2 lớp" lại từ đầu' });
+      const step = await totpCheck(await unseal(env, user.totp_secret), b.code, 0);
+      if (step < 0) return json(400, { error: 'Mã chưa đúng – kiểm tra giờ trên điện thoại và nhập mã đang hiện' });
+      await DB.batch([DB.prepare('UPDATE users SET totp_on = 1, totp_last = ? WHERE id = ?').bind(step, user.id),
+        DB.prepare('DELETE FROM sessions WHERE user_id = ? AND token_hash != ?').bind(user.id, await sha256(cookie(req, 's')))]);
+      await log(env, t.id, `${user.name} bật xác thực 2 lớp (đăng xuất các máy khác)`);
+      return json(200, {});
+    }
+    if (!user.totp_on) return json(400, { error: 'Xác thực 2 lớp chưa bật' });
+    if (!same(await hashPw(b.password || '', user.salt), user.hash)) return json(400, { error: 'Mật khẩu không đúng' });
+    if (await totpCheck(await unseal(env, user.totp_secret), b.code, user.totp_last) < 0) return json(400, { error: 'Mã xác thực không đúng' });
+    await DB.prepare('UPDATE users SET totp_on = 0, totp_secret = NULL, totp_last = 0 WHERE id = ?').bind(user.id).run();
+    await log(env, t.id, `${user.name} TẮT xác thực 2 lớp`);
+    return json(200, {});
+  }
   if (post && a === 'password') {
     const b = await body(req);
     if (!same(await hashPw(b.old || '', user.salt), user.hash)) return json(400, { error: 'Mật khẩu hiện tại không đúng' });
@@ -284,14 +333,14 @@ async function adminApi(req, env, t, user, a, post, stub) {
     const [exams, rooms, users, ktvs, live] = await Promise.all([
       DB.prepare('SELECT * FROM bai WHERE truong_id = ? ORDER BY uploaded_at').bind(t.id).all(),
       DB.prepare('SELECT bai_id, room, code, ktv_id FROM phong WHERE truong_id = ? ORDER BY room').bind(t.id).all(),
-      DB.prepare('SELECT u.id, u.name, u.username, u.role, u.created_at, (SELECT COUNT(*) FROM bai b WHERE b.teacher_id = u.id) AS exam_count FROM users u WHERE truong_id = ? ORDER BY created_at').bind(t.id).all(),
+      DB.prepare('SELECT u.id, u.name, u.username, u.role, u.created_at, u.totp_on, (SELECT COUNT(*) FROM bai b WHERE b.teacher_id = u.id) AS exam_count FROM users u WHERE truong_id = ? ORDER BY created_at').bind(t.id).all(),
       DB.prepare('SELECT id, name FROM ktv WHERE truong_id = ? ORDER BY name').bind(t.id).all(),
       stub.liveState(),
     ]);
     const now = Date.now(), lanId = t.lan_public_key ? await keyIdOf(t.lan_public_key) : null;
     return json(200, {
-      now, user: { name: user.name }, school: { ten: t.ten, slug: t.slug, goi: t.goi, hetHan: t.het_han, lanKey: !!t.lan_public_key }, map, ktvs: ktvs.results,
-      users: users.results.map(u => ({ id: u.id, name: u.name, username: u.username, role: u.role, createdAt: u.created_at, examCount: u.exam_count })),
+      now, user: { name: user.name, username: user.username, totp: !!user.totp_on }, school: { ten: t.ten, slug: t.slug, goi: t.goi, hetHan: t.het_han, lanKey: !!t.lan_public_key }, map, ktvs: ktvs.results,
+      users: users.results.map(u => ({ id: u.id, name: u.name, username: u.username, role: u.role, createdAt: u.created_at, examCount: u.exam_count, totp: !!u.totp_on })),
       exams: exams.results.map(e => {
         const l = live.live[e.id] || {}, mine = rooms.results.filter(r => r.bai_id === e.id), st = live.rooms[e.id] || {};
         return { id: e.id, title: e.title, teacherName: e.teacher_name, teacherId: e.teacher_id, mime: e.mime, size: e.size, dur: e.dur, uploadedAt: e.uploaded_at, t0: e.t0, verified: e.verified,
@@ -351,8 +400,9 @@ async function adminApi(req, env, t, user, a, post, stub) {
     await DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(target.id).run();
     if (a === 'user-reset') {
       const password = genPassword(), salt = randHex(16);
-      await DB.prepare('UPDATE users SET salt = ?, hash = ? WHERE id = ?').bind(salt, await hashPw(password, salt), target.id).run();
-      await log(env, t.id, `${who}: đặt lại mật khẩu ${target.username}`);
+      await DB.batch([DB.prepare('UPDATE users SET salt = ?, hash = ?, totp_on = 0, totp_secret = NULL, totp_last = 0 WHERE id = ?').bind(salt, await hashPw(password, salt), target.id),
+        DB.prepare('DELETE FROM dang_nhap_sai WHERE k = ?').bind(`u:${t.id}:${target.username}`)]);
+      await log(env, t.id, `${who}: đặt lại mật khẩu ${target.username}` + (target.totp_on ? ' (gỡ xác thực 2 lớp)' : ''));
       return json(200, { username: target.username, password });
     }
     await DB.prepare('DELETE FROM users WHERE id = ?').bind(target.id).run();

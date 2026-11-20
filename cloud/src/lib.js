@@ -46,6 +46,41 @@ export async function newSchoolKeys(env) {
 export const keyIdOf = async pub => (await sha256(pub)).slice(0, 16);
 
 // CHỈ Durable Object gọi hàm này, sau khi đã kiểm tra giờ (xem Truong.#unwrapExamKey).
+// Bọc một bí mật nhỏ (khoá TOTP) bằng MASTER_KEY
+export async function seal(env, bytes) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  return b64(iv) + '.' + b64(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await masterKey(env), bytes));
+}
+export async function unseal(env, s) {
+  const [iv, ct] = String(s).split('.');
+  return new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(iv) }, await masterKey(env), unb64(ct)));
+}
+
+// ---------- TOTP (RFC 6238: HMAC-SHA1, 6 số, bước 30 giây) – dùng với Google Authenticator, Microsoft Authenticator ----------
+const B32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+export function base32(bytes) {
+  let bits = 0, v = 0, out = '';
+  for (const x of bytes) { v = (v << 8) | x; bits += 8; while (bits >= 5) { out += B32[(v >>> (bits - 5)) & 31]; bits -= 5; } }
+  if (bits) out += B32[(v << (5 - bits)) & 31];
+  return out;
+}
+export async function totpAt(secret, step) {
+  const msg = new Uint8Array(8);
+  new DataView(msg.buffer).setUint32(4, step);
+  new DataView(msg.buffer).setUint32(0, Math.floor(step / 2 ** 32));
+  const k = await crypto.subtle.importKey('raw', secret, { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
+  const h = new Uint8Array(await crypto.subtle.sign('HMAC', k, msg)), o = h[19] & 15;
+  return String((((h[o] & 127) << 24) | (h[o + 1] << 16) | (h[o + 2] << 8) | h[o + 3]) % 1e6).padStart(6, '0');
+}
+// Trả về bước thời gian khớp (lệch tối đa 1 bước = 30 giây), hoặc -1. Mã đã dùng (bước <= last) không nhận lại.
+export async function totpCheck(secret, code, last = 0) {
+  code = String(code || '').replace(/\s/g, '');
+  if (!/^\d{6}$/.test(code)) return -1;
+  const now = Math.floor(Date.now() / 30000);
+  for (const s of [now, now - 1, now + 1]) if (s > last && same(await totpAt(secret, s), code)) return s;
+  return -1;
+}
+
 export async function unwrapExamKey(env, wrappedPrivate, wrappedKey) {
   const [iv, ct] = wrappedPrivate.split('.');
   const pkcs8 = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(iv) }, await masterKey(env), unb64(ct));

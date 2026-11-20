@@ -135,7 +135,7 @@ async function openEdit(slug) {
     $('editTitle').textContent = `Sửa trường: ${t.ten} (${t.slug})`;
     $('eTen').value = t.ten; $('eGoi').value = t.goi; $('eHan').value = fromDate(t.het_han); $('eKhoa').checked = !!t.khoa;
     $('eMap').value = BanDo.format(t.ban_do); $('ePreview').innerHTML = '';
-    $('eAdmins').textContent = 'Admin hiện có: ' + (t.admins.map(a => `${a.name} (${a.username})`).join(', ') || 'chưa có') + '. Cấp mật khẩu mới sẽ đăng xuất admin đó khỏi mọi máy.';
+    $('eAdmins').textContent = 'Admin hiện có: ' + (t.admins.map(a => `${a.name} (${a.username})`).join(', ') || 'chưa có') + '. Cấp mật khẩu mới sẽ đăng xuất admin đó khỏi mọi máy và gỡ xác thực 2 lớp (dùng khi mất điện thoại).';
     $('rUser').value = t.admins[0]?.username || 'admin'; $('rName').value = '';
     note('eMsg', ''); note('rMsg', '');
     show('editCard', true); $('editCard').scrollIntoView({ behavior: 'smooth' });

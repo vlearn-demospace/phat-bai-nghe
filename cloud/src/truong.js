@@ -6,6 +6,9 @@ import { json, norm, CODE_LEN, randHex, b64, unwrapExamKey, splitWaves, log } fr
 
 const WAVE_GAP = 10000;          // đợt 2 phát 10 giây sau khi đợt 1 xong
 const FAIL_MAX = 20, FAIL_MS = 10 * 60000;
+// Mã phòng chỉ dùng được từ 24 giờ trước giờ thi đến 3 giờ sau khi bài kết thúc (máy đã vào bằng thẻ không bị ảnh hưởng)
+export const CODE_EARLY = 24 * 3600e3, CODE_LATE = 3 * 3600e3;
+export const codeOpen = (row, now = Date.now()) => !!row.t0 && now >= row.t0 - CODE_EARLY && now <= row.t0 + (row.dur || 3600) * 1000 + CODE_LATE;
 const VERIFY_MAX = 40 * 1048576; // thử giải mã toàn bộ file đến 40 MB (giới hạn bộ nhớ 128 MB)
 
 export class Truong extends DurableObject {
@@ -60,7 +63,12 @@ export class Truong extends DurableObject {
         if (this.blocked(ip)) return json(429, { error: 'Nhập sai quá nhiều lần, thử lại sau 10 phút' });
         const code = norm(q.code);
         row = code.length === CODE_LEN && await this.env.DB.prepare(this.roomQuery('p.truong_id = ? AND p.code = ?')).bind(tid, code).first();
-        if (!row) { this.fail(ip); await log(this.env, tid, `Đăng nhập SAI từ ${ip}`); return json(403, { error: 'Sai mã truy cập' }); }
+        // Mã sai và mã ngoài thời gian dùng trả CÙNG một câu, để không dò được mã đúng từ trước
+        if (!row || !codeOpen(row)) {
+          this.fail(ip);
+          await log(this.env, tid, row ? `${row.title} / ${row.room}: nhập mã NGOÀI thời gian dùng mã từ ${ip}` : `Đăng nhập SAI từ ${ip}`);
+          return json(403, { error: 'Mã không đúng, hoặc chưa đến thời gian dùng mã (từ 24 giờ trước giờ thi)' });
+        }
         if (!row.token) {
           row.token = randHex(32);
           await this.env.DB.prepare('UPDATE phong SET token = ? WHERE bai_id = ? AND room = ? AND token IS NULL').bind(row.token, row.id, row.room).run();

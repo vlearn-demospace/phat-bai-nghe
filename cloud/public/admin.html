@@ -24,6 +24,7 @@ header .chips{margin-left:auto}
     <p class="mute">Dùng tài khoản admin của trường.</p>
     <label>Tên đăng nhập</label><input type="text" id="un" autocomplete="username" autocapitalize="none">
     <label>Mật khẩu</label><input type="password" id="pw" autocomplete="current-password">
+    <div id="codeBox" class="hidden"><label for="code">Mã xác thực (6 số trên ứng dụng xác thực)</label><input type="text" id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="7"></div>
     <button id="btnLogin" class="b-primary">Đăng nhập</button>
     <div id="loginErr" class="note err hidden"></div>
   </div>
@@ -135,6 +136,30 @@ header .chips{margin-left:auto}
     <div class="mute small" id="planInfo" style="margin-top:14px"></div>
     <button class="b-ghost" id="btnOut">Đăng xuất</button>
   </div>
+  <div class="card" id="tfaCard">
+    <h2>Xác thực 2 lớp cho tài khoản của bạn</h2>
+    <div id="tfaOff">
+      <p class="mute small">Khuyên bật cho mọi tài khoản admin: đăng nhập cần thêm mã 6 số trên điện thoại (Google Authenticator, Microsoft Authenticator…). Lộ mật khẩu cũng không vào được trang admin. Mất điện thoại: admin khác (hoặc VLearn) đặt lại mật khẩu, việc này gỡ luôn 2 lớp.</p>
+      <button class="b-dark" id="btnTfaSetup">Bật xác thực 2 lớp</button>
+    </div>
+    <div id="tfaSetup" class="hidden">
+      <p class="small">1. Mở ứng dụng xác thực trên điện thoại, chọn thêm tài khoản, quét mã QR (hoặc nhập khoá bên dưới).</p>
+      <div id="tfaQr" style="width:200px;height:200px;background:#fff;padding:8px;border-radius:10px;border:1px solid rgb(var(--line))"></div>
+      <p class="small mute">Khoá: <code id="tfaSecret"></code></p>
+      <label for="tfaCode">2. Nhập mã 6 số đang hiện trên điện thoại</label>
+      <input type="text" id="tfaCode" inputmode="numeric" autocomplete="one-time-code" maxlength="7" style="max-width:200px">
+      <div><button class="b-dark" id="btnTfaEnable">Xác nhận và bật</button><button class="b-ghost" id="btnTfaCancel">Huỷ</button></div>
+    </div>
+    <div id="tfaOn" class="hidden">
+      <div class="note ok">✓ Đang bật. Đăng nhập cần mã trên điện thoại. Các máy khác đã bị đăng xuất lúc bật.</div>
+      <details><summary class="small">Tắt xác thực 2 lớp</summary>
+        <div class="row"><div><label for="tfaPw">Mật khẩu</label><input type="password" id="tfaPw" autocomplete="current-password"></div>
+        <div><label for="tfaOffCode">Mã 6 số</label><input type="text" id="tfaOffCode" inputmode="numeric" maxlength="7"></div></div>
+        <button class="b-red" id="btnTfaOff">Tắt</button>
+      </details>
+    </div>
+    <div id="tfaMsg" class="note hidden"></div>
+  </div>
   <div class="card">
     <h2>Sơ đồ phòng</h2>
     <p class="mute small">Dùng để chọn phòng khi xếp lịch và tách phòng sát vách sang đợt 2. Mỗi khu bắt đầu bằng dòng <code># Tên khu</code>; mỗi tầng một dòng <code>Tầng 2 [PHÒNG ĐỢI]: 201 10A1; 202 10A2; |; 203 10A3</code>. Các ô cách nhau bằng dấu <code>;</code>, <code>|</code> là cầu thang (hai phòng hai bên cầu thang không tính là sát vách). Phần <code>[...]</code> không bắt buộc.</p>
@@ -172,6 +197,7 @@ header .chips{margin-left:auto}
 </main>
 
 <script src="/ban-do.js"></script>
+<script src="/qrcode.js"></script>
 <script>
 const $ = id => document.getElementById(id);
 const BASE = '/' + location.pathname.split('/')[1];   // /<trường>
@@ -220,6 +246,7 @@ function render() {
   $('chExam').textContent = `Bài: ${ex.length} · đã xếp lịch: ${sch.length}`; $('chExam').className = 'chip ' + (ex.length ? 'ok' : '');
   $('schoolName').textContent = S.school.ten; document.title = 'Admin – ' + S.school.ten; $('gHint').textContent = baseUrl() + '/g';
   fillMap();
+  if (!tfaBusy) { show('tfaOff', !S.user.totp); show('tfaOn', S.user.totp); }
 
   // ----- Bài nghe
   show('noExam', !ex.length); show('examTbl', !!ex.length);
@@ -290,7 +317,7 @@ function render() {
   show('noKtv', !S.ktvs.length); show('ktvTbl', !!S.ktvs.length);
   setHtml($('ktvRows'), S.ktvs.map(k => `<tr><td><b>${esc(k.name)}</b></td><td>${ex.reduce((n, e) => n + Object.values(e.ktv).filter(id => id === k.id).length, 0)}</td><td><button class="mini b-red" data-kdel="${k.id}">Xoá</button></td></tr>`).join(''));
   show('noUser', !S.users.length); show('userTbl', !!S.users.length);
-  setHtml($('userRows'), S.users.map(u => `<tr><td><b>${esc(u.name)}</b></td><td>${esc(u.username)}</td><td>${u.role === 'admin' ? 'Admin' : 'Giáo viên'}</td><td>${u.examCount}</td>
+  setHtml($('userRows'), S.users.map(u => `<tr><td><b>${esc(u.name)}</b></td><td>${esc(u.username)}</td><td>${u.role === 'admin' ? 'Admin' : 'Giáo viên'}${u.totp ? ' <span class="chip ok">2 lớp</span>' : u.role === 'admin' ? ' <span class="chip warn">chưa bật 2 lớp</span>' : ''}</td><td>${u.examCount}</td>
     <td style="white-space:nowrap"><button class="mini b-light" data-reset="${u.id}">Đặt lại mật khẩu</button><button class="mini b-red" data-udel="${u.id}">Xoá</button></td></tr>`).join(''));
 
   // ----- Địa chỉ & dự phòng
@@ -327,6 +354,36 @@ async function makeSchoolKey() {
 $('btnSchool').onclick = makeSchoolKey;
 $('btnSchoolNew').onclick = () => { if (confirm('Gỡ khoá LAN? Bài đăng sau đó sẽ không có bản dự phòng LAN.')) act('lan-key', {}); };
 $('btnKeyAgain').onclick = () => lastKey && downloadKey(lastKey);
+
+// ---------- Xác thực 2 lớp ----------
+let tfaBusy = false;
+const tfaNote = (text, kind = '') => { const el = $('tfaMsg'); el.className = 'note ' + kind; el.textContent = text; show('tfaMsg', !!text); };
+const tpost = async (a, body) => {
+  const r = await fetch(BASE + '/api/t/' + a, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || 'Lỗi ' + r.status);
+  return d;
+};
+$('btnTfaSetup').onclick = async () => {
+  try {
+    const d = await tpost('2fa-setup');
+    const qr = qrcode(0, 'M'); qr.addData(d.uri); qr.make();
+    $('tfaQr').innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
+    $('tfaSecret').textContent = d.secret.match(/.{1,4}/g).join(' ');
+    tfaBusy = true; show('tfaOff', false); show('tfaSetup', true); tfaNote(''); $('tfaCode').value = ''; $('tfaCode').focus();
+  } catch (e) { tfaNote(e.message, 'err'); }
+};
+$('btnTfaCancel').onclick = () => { tfaBusy = false; show('tfaSetup', false); $('tfaQr').innerHTML = ''; tfaNote(''); refresh(); };
+$('btnTfaEnable').onclick = async () => {
+  try { await tpost('2fa-enable', { code: $('tfaCode').value }); tfaBusy = false; show('tfaSetup', false); $('tfaQr').innerHTML = ''; tfaNote(''); await refresh(); }
+  catch (e) { tfaNote(e.message, 'err'); }
+};
+$('tfaCode').onkeydown = e => { if (e.key === 'Enter') $('btnTfaEnable').click(); };
+$('btnTfaOff').onclick = async () => {
+  if (!confirm('Tắt xác thực 2 lớp? Tài khoản admin sẽ chỉ còn bảo vệ bằng mật khẩu.')) return;
+  try { await tpost('2fa-disable', { password: $('tfaPw').value, code: $('tfaOffCode').value }); $('tfaPw').value = $('tfaOffCode').value = ''; tfaNote('Đã tắt xác thực 2 lớp.', 'warn'); await refresh(); }
+  catch (e) { tfaNote(e.message, 'err'); }
+};
 
 // ---------- Sơ đồ phòng ----------
 const mapNote = (text, kind = '') => { const el = $('mapMsg'); el.className = 'note ' + kind; el.textContent = text; show('mapMsg', !!text); };
@@ -568,14 +625,16 @@ document.querySelectorAll('[data-copy]').forEach(b => b.onclick = () => copy(b.d
 $('btnLogin').onclick = async () => {
   note('loginErr', '');
   try {
-    const r = await fetch(BASE + '/api/t/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: $('un').value, password: $('pw').value }) });
+    const r = await fetch(BASE + '/api/t/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: $('un').value, password: $('pw').value, code: $('code').value }) });
     const d = await r.json().catch(() => ({}));
+    if (d.need2fa) { const first = $('codeBox').classList.contains('hidden'); show('codeBox', true); $('code').value = ''; $('code').focus(); return note('loginErr', first ? '' : d.error); }
     if (!r.ok) return note('loginErr', d.error || 'Lỗi đăng nhập');
     if (d.role !== 'admin') return note('loginErr', 'Tài khoản này không phải admin. Giáo viên đăng bài ở địa chỉ ' + BASE + '/g.');
-    $('pw').value = ''; refresh();
+    $('pw').value = ''; $('code').value = ''; show('codeBox', false); refresh();
   } catch { note('loginErr', 'Không kết nối được máy chủ.'); }
 };
 $('pw').onkeydown = e => { if (e.key === 'Enter') $('btnLogin').click(); };
+$('code').onkeydown = e => { if (e.key === 'Enter') $('btnLogin').click(); };
 
 (() => { const off = -new Date().getTimezoneOffset(); $('tzInfo').textContent = `UTC${off >= 0 ? '+' : '−'}${pad(Math.abs(off) / 60 | 0)}:${pad(Math.abs(off) % 60)}`; })();
 go(tab); refresh(); setInterval(refresh, 2000);
