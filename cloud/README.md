@@ -63,6 +63,19 @@ phát đồng loạt, phòng sát vách sang đợt 2, WebSocket nhận lệnh �
    **Mất MASTER_KEY = mọi bài chưa thi phải đăng lại.** Cất một bản ở nơi an toàn ngoài máy.
 4. `npm run deploy` → địa chỉ dạng `https://phat-bai-nghe.<tài-khoản>.workers.dev`.
 
+### Bản thử đang chạy
+- Địa chỉ: `https://phat-bai-nghe.phat-bai-nghe-cloud.workers.dev` (tài khoản Cloudflare thử, gói Free). Trường thử: `/lvc/a` (admin), `/lvc/g` (giáo viên), `/lvc/` (máy phòng).
+- Đăng nhập wrangler cho tài khoản thử được tách riêng để không đụng tài khoản đang chạy kỳ thi:
+  ```powershell
+  $env:XDG_CONFIG_HOME = "$PWD\.wrangler-account"; npx wrangler login
+  ```
+  (thư mục `.wrangler-account/` không lên git; mọi lệnh `wrangler` cho bản thử chạy trong cùng cửa sổ có biến này).
+- Tài khoản mới phải **bật R2 trong dashboard** (R2 → Enable) trước khi `r2 bucket create`, nếu không sẽ báo lỗi 10042.
+- Kiểm thử nhanh trên bản đã triển khai (tạo trường `SLUG`, đi hết luồng, xoá bài thử):
+  ```powershell
+  $env:BASE='https://phat-bai-nghe.phat-bai-nghe-cloud.workers.dev'; $env:SUPER_TOKEN='<mã>'; $env:SLUG='kt1'; node test/smoke-remote.mjs
+  ```
+
 Gói Workers Free đủ để thử (giới hạn 10 ms CPU/yêu cầu có thể làm chậm đăng nhập, đăng bài lớn). Chạy thật nên dùng gói Paid ($5/tháng).
 
 ## Chưa làm trong MVP

@@ -66,17 +66,17 @@ export async function decryptLikeRoom(enc, keyB64) {
 }
 
 // Đăng bài qua API như trang giáo viên (chia phần theo cỡ máy chủ yêu cầu)
-export async function uploadExam(g, me, plain, title, extra = {}) {
+export async function uploadExam(g, me, plain, title, extra = {}, slug = 'thu') {
   const { enc, wrappedKey, sha256 } = await encryptLikeTeacher(plain, me.publicKey);
-  const s = await g('/thu/api/t/upload-start', { body: { size: enc.length } });
+  const s = await g(`/${slug}/api/t/upload-start`, { body: { size: enc.length } });
   if (s.status !== 200) return s;
   const parts = [];
   for (let off = 0, n = 1; off < enc.length; off += s.data.part, n++) {
-    const r = await g(`/thu/api/t/upload-part?id=${s.data.id}&n=${n}`, { body: enc.subarray(off, off + s.data.part), headers: { 'content-type': 'application/octet-stream' } });
+    const r = await g(`/${slug}/api/t/upload-part?id=${s.data.id}&n=${n}`, { body: enc.subarray(off, off + s.data.part), headers: { 'content-type': 'application/octet-stream' } });
     if (r.status !== 200) return r;
     parts.push(r.data);
   }
-  return g('/thu/api/t/upload-finish', { body: { id: s.data.id, parts, title, mime: 'audio/mpeg', dur: 3, size: enc.length, sha256, wrappedKey, keyId: me.keyId, ...extra } });
+  return g(`/${slug}/api/t/upload-finish`, { body: { id: s.data.id, parts, title, mime: 'audio/mpeg', dur: 3, size: enc.length, sha256, wrappedKey, keyId: me.keyId, ...extra } });
 }
 
 // Sơ đồ nhỏ để thử: tầng 1 có 3 phòng liền nhau (101-102-103), cầu thang, rồi 104
