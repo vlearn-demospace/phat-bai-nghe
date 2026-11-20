@@ -5,6 +5,7 @@
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { browser, sleep, uploadExam, decryptLikeRoom, makeLanKey, MAP } from './helpers.mjs';
+import { totpAt } from '../src/lib.js';
 
 const BASE = process.env.BASE, TOKEN = process.env.SUPER_TOKEN, SLUG = process.env.SLUG || 'thu';
 if (!BASE || !TOKEN) { console.error('Cần BASE và SUPER_TOKEN'); process.exit(2); }
@@ -22,6 +23,18 @@ assert.equal((await fetch(BASE + '/_')).status, 200);
 const lan = await makeLanKey();
 assert.equal((await a(`/${SLUG}/api/admin/lan-key`, { body: { publicKey: lan.publicKey } })).status, 200);
 step('trang siêu admin chạy; admin tạo khoá LAN');
+{ // xác thực 2 lớp
+  const s = (await a(`/${SLUG}/api/t/2fa-setup`, { body: {} })).data;
+  const B = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567', raw = []; let bits = 0, v = 0;
+  for (const c of s.secret) { v = (v << 5) | B.indexOf(c); bits += 5; if (bits >= 8) { raw.push((v >>> (bits - 8)) & 255); bits -= 8; } }
+  const now = Math.floor(Date.now() / 30000);
+  assert.equal((await a(`/${SLUG}/api/t/2fa-enable`, { body: { code: await totpAt(new Uint8Array(raw), now) } })).status, 200);
+  const b2 = browser(BASE);
+  assert.equal((await b2(`/${SLUG}/api/t/login`, { body: { username: 'admin', password: made.password } })).status, 401);
+  assert.equal((await b2(`/${SLUG}/api/t/login`, { body: { username: 'admin', password: made.password, code: await totpAt(new Uint8Array(raw), now + 1) } })).status, 200);
+  assert.equal((await b2(`/${SLUG}/api/admin/status`)).data.user.totp, true);
+  step('xác thực 2 lớp: không có mã bị từ chối, có mã vào được');
+}
 const tp = (await a(`/${SLUG}/api/admin/user-create`, { body: { name: 'GV kiểm thử', username: 'giaovien' } })).data.password;
 const g = browser(BASE);
 assert.equal((await g(`/${SLUG}/api/t/login`, { body: { username: 'giaovien', password: tp } })).status, 200);

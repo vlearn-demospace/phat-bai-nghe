@@ -99,7 +99,16 @@ sau khi xếp lịch, bấm "Tải gói dự phòng LAN": file .zip (đóng ngay
 chạy MO-CHUONG-TRINH.bat, nạp file khoá LAN, máy phòng nhập đúng mã đã in. Gói không chứa khoá.
 Giới hạn: bản LAN chia đợt theo sơ đồ cài sẵn trong `server.js` (sơ đồ LVC); trường khác vẫn thi được nhưng không tự chia đợt.
 
+## Bảo mật tài khoản và mã phòng
+- **Xác thực 2 lớp** (TOTP, dùng Google/Microsoft Authenticator): mỗi admin tự bật ở tab "Cài đặt trường" bằng mã QR.
+  Mỗi mã 6 số chỉ dùng được một lần. Mất điện thoại: admin khác đặt lại mật khẩu, hoặc VLearn cấp lại ở `/_` – việc này gỡ luôn 2 lớp.
+  Danh sách tài khoản ghi rõ admin nào chưa bật.
+- **Đăng nhập sai**: 10 lần/tài khoản hoặc 20 lần/IP trong 15 phút thì khoá 15 phút (đếm trên D1). Đặt lại mật khẩu thì mở khoá.
+  Thêm Rate Limiting của Cloudflare: 30 lần đăng nhập/phút/IP. Phiên admin 7 ngày, giáo viên 30 ngày.
+- **Mã phòng** chỉ dùng được từ 24 giờ trước giờ thi đến 3 giờ sau khi bài thi xong. Mã sai và mã ngoài giờ trả cùng một câu,
+  nên không dò trước được mã đúng. Máy đã vào bằng mã (có thẻ) không bị ảnh hưởng.
+
 ## Chưa làm
 - Thu tiền (gói cước đã có trường `goi`, `het_han`; siêu admin gia hạn bằng tay).
 - Bản LAN đọc `data/ban-do.json` trong gói (để trường khác cũng chia đợt khi chạy dự phòng).
-- Xác thực 2 lớp cho admin, luật Rate Limiting của Cloudflare, mã phòng chỉ hiệu lực quanh giờ thi.
+- Tuỳ chọn "bắt buộc 2 lớp cho mọi admin" theo trường; 2 lớp cho siêu admin (hiện chỉ có SUPER_TOKEN).
