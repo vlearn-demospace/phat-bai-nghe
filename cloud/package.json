@@ -1,0 +1,13 @@
+{
+  "name": "phat-bai-nghe-cloud",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler d1 migrations apply DB --local && wrangler dev",
+    "test": "node --test --test-concurrency=1 test/*.test.mjs",
+    "deploy": "wrangler d1 migrations apply DB --remote && wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "4.157.0"
+  }
+}
