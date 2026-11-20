@@ -48,9 +48,11 @@ audio{width:100%;margin-top:18px}.hidden{display:none}
 
 <script>
 const $ = id => document.getElementById(id);
-const fromUrl = (location.pathname.match(/^\/([A-Za-z0-9]{4})$/) || [])[1] || new URLSearchParams(location.search).get('c');
-let code = (fromUrl || localStorage.getItem('code') || '').toUpperCase().replace(/[^A-Z0-9]/g, ''), room = '';
-let token = code && code === localStorage.getItem('code') ? localStorage.getItem('token') || '' : '', retry = null;
+const SLUG = location.pathname.split('/')[1], BASE = '/' + SLUG;   // mỗi trường một đường dẫn: /<trường>/...
+const ls = { get: k => localStorage.getItem(SLUG + ':' + k), set: (k, v) => localStorage.setItem(SLUG + ':' + k, v), del: k => localStorage.removeItem(SLUG + ':' + k) };
+const fromUrl = (location.pathname.match(/^\/[^/]+\/([A-Za-z0-9]{4})$/) || [])[1] || new URLSearchParams(location.search).get('c');
+let code = (fromUrl || ls.get('code') || '').toUpperCase().replace(/[^A-Z0-9]/g, ''), room = '';
+let token = code && code === ls.get('code') ? ls.get('token') || '' : '', retry = null, ws = null, lastSent = 0;
 let offset = 0, T0 = 0, mime = 'audio/mpeg', sha = '', size = 0, encBuf = null;
 let unlocked = false, unlocking = false, lastTry = 0, activated = false, serverReleased = false;
 let handledPlayAt = null, currentPlayAt = null, status = 'đã đăng nhập', started = false;
@@ -61,7 +63,7 @@ const hex = b => [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')
 const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
 function step(id, cls, text) { const e = $(id); e.className = cls; e.textContent = (cls === 'ok' ? '✓ ' : cls === 'err' ? '✗ ' : '○ ') + text; }
 function hms(ms) { const s = Math.max(0, Math.floor(ms / 1000)); const d = Math.floor(s / 86400); return (d ? d + 'n ' : '') + [s % 86400 / 3600 | 0, (s % 3600) / 60 | 0, s % 60].map(x => String(x).padStart(2, '0')).join(':'); }
-if (fromUrl) history.replaceState(null, '', '/');   // không để mã nằm trên thanh địa chỉ
+if (fromUrl) history.replaceState(null, '', BASE + '/');   // không để mã nằm trên thanh địa chỉ
 
 // --- Lưu file MÃ HOÁ vào IndexedDB: tải lại trang / mất mạng vẫn còn ---
 function idb() { return new Promise((ok, no) => { const r = indexedDB.open('exam-audio', 1); r.onupgradeneeded = () => r.result.createObjectStore('f'); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); }); }
@@ -70,7 +72,7 @@ async function idbPut(k, v) { try { const db = await idb(); await new Promise(ok
 async function idbDel(k) { try { const db = await idb(); await new Promise(ok => { const t = db.transaction('f', 'readwrite'); t.objectStore('f').delete(k); t.oncomplete = ok; t.onerror = ok; }); } catch {} }
 
 async function syncTime() {
-  const t1 = Date.now(); const r = await (await fetch('/api/time', { cache: 'no-store' })).json(); const t2 = Date.now();
+  const t1 = Date.now(); const r = await (await fetch(BASE + '/api/time', { cache: 'no-store' })).json(); const t2 = Date.now();
   offset = r.now - (t1 + t2) / 2;
 }
 
@@ -86,25 +88,25 @@ async function login() {
 async function start(manual) {
   if (!window.crypto || !crypto.subtle) { $('loginMsg').textContent = 'Trình duyệt không cho phép giải mã: phải mở bằng địa chỉ https:// do admin cung cấp.'; return; }
   let r;
-  try { r = await fetch('/api/login?' + (token ? qs() : 'code=' + encodeURIComponent(code)), { cache: 'no-store' }); }
+  try { r = await fetch(BASE + '/api/login?' + (token ? qs() : 'code=' + encodeURIComponent(code)), { cache: 'no-store' }); }
   catch { $('loginMsg').textContent = 'Không kết nối được máy chủ. Kiểm tra mạng, thử lại.'; return; }
   const info = await r.json().catch(() => ({}));
-  if (!r.ok && token) { token = ''; localStorage.removeItem('token'); return start(manual); }
+  if (!r.ok && token) { token = ''; ls.del('token'); return start(manual); }
   if (!r.ok) {
     $('loginMsg').textContent = info.error || 'Sai mã'; $('login').classList.remove('hidden'); $('main').classList.add('hidden');
     if (r.status === 429) retry = setTimeout(() => start(manual), 30000);   // đang bị chặn: giữ mã, tự thử lại
-    else localStorage.removeItem('code');
+    else ls.del('code');
     return;
   }
   room = info.room; mime = info.mime; sha = info.sha256; size = info.size; T0 = info.t0;
-  token = info.token; localStorage.setItem('code', code); localStorage.setItem('token', token);
+  token = info.token; ls.set('code', code); ls.set('token', token);
   $('login').classList.add('hidden'); $('main').classList.remove('hidden');
   $('title').textContent = 'Phòng ' + room.slice(1); $('examTitle').textContent = info.title + (info.ktv ? ' · Kỹ thuật viên: ' + info.ktv : '');
   if (started) return; started = true;
   await syncTime().catch(() => {});
   $('t0txt').textContent = new Date(T0).toLocaleString('vi-VN');
   setInterval(() => syncTime().catch(() => {}), 60000);
-  setInterval(tick, 250); setInterval(report, 2000); report();
+  setInterval(tick, 250); setInterval(report, 1000); connectWs(); report(true);
   download();
 }
 
@@ -113,7 +115,7 @@ async function download() {
     step('s1', 'wait', 'Đang tải file đề (đã mã hoá)…'); status = 'đang tải';
     const k = 'enc-' + sha; let buf = await idbGet(k);
     if (!buf) {
-      const r = await fetch('/api/audio?' + qs(), { cache: 'no-store' });
+      const r = await fetch(BASE + '/api/audio?' + qs(), { cache: 'no-store' });
       if (!r.ok) throw new Error('máy chủ từ chối');
       const total = +r.headers.get('Content-Length') || size, reader = r.body.getReader(), parts = []; let got = 0;
       $('dlBar').classList.remove('hidden');
@@ -140,7 +142,7 @@ function tick() {
 async function unlock() {
   if (Date.now() - lastTry < 3000) return; lastTry = Date.now(); unlocking = true;
   try {
-    const r = await fetch('/api/key?' + qs(), { cache: 'no-store' });
+    const r = await fetch(BASE + '/api/key?' + qs(), { cache: 'no-store' });
     if (!r.ok) { const e = await r.json().catch(() => ({})); step('s4', 'wait', 'Chờ máy chủ mở khoá… ' + (e.error || '')); return; }
     const { key } = await r.json();
     const k = await crypto.subtle.importKey('raw', b64(key), 'AES-GCM', false, ['decrypt']);
@@ -153,13 +155,29 @@ async function unlock() {
   finally { unlocking = false; }
 }
 
-async function report() {
+// Kết nối WebSocket để nhận lệnh phát ngay; mất kết nối thì quay về hỏi máy chủ qua HTTP và tự nối lại
+function connectWs() {
+  try { ws = new WebSocket(location.origin.replace(/^http/, 'ws') + BASE + '/api/ws?' + qs()); } catch { ws = null; return; }
+  ws.onmessage = e => { try { handle(JSON.parse(e.data)); } catch {} };
+  ws.onopen = () => report(true);
+  ws.onclose = () => { ws = null; setTimeout(connectWs, 5000); };
+}
+const payload = () => JSON.stringify({ status, pos: player.currentTime || 0, dur: player.duration || 0, activated });
+async function report(force) {
+  const open = ws && ws.readyState === 1, gap = open ? 5000 : 3000;
+  if (!force && Date.now() - lastSent < gap) return;
+  lastSent = Date.now();
+  if (open) { try { ws.send(payload()); } catch {} return; }
   try {
-    const r = await fetch('/api/report', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, status, pos: player.currentTime || 0, dur: player.duration || 0, activated }) });
+    const r = await fetch(BASE + '/api/report?' + qs(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload() });
     if (r.status === 403) { $('msg').textContent = 'Mã phòng không còn hiệu lực (admin đã đổi đề). Đăng xuất và nhập mã mới.'; return; }
     if (!r.ok) return;
-    const d = await r.json(); serverReleased = d.released; currentPlayAt = d.playAt;
+    handle(await r.json());
+  } catch (e) { /* mất mạng tạm thời: file đã ở máy */ }
+}
+function handle(d) {
+  {
+    serverReleased = d.released; currentPlayAt = d.playAt;
     if (d.t0 && d.t0 !== T0) { T0 = d.t0; $('t0txt').textContent = new Date(T0).toLocaleString('vi-VN'); }
     if (d.playAt && d.playAt !== handledPlayAt && unlocked) {
       handledPlayAt = d.playAt; const wait = d.playAt - now();
@@ -168,16 +186,16 @@ async function report() {
         setTimeout(() => { if (currentPlayAt === handledPlayAt) play(); else $('msg').textContent = 'Admin đã huỷ lệnh phát.'; }, Math.max(0, wait));
       } else $('msg').textContent = 'Lệnh phát đã quá 15 giây – bấm Phát thủ công nếu được chỉ đạo.';
     }
-  } catch (e) { /* mất mạng tạm thời: file đã ở máy */ }
+  }
 }
 
 async function play() {
   try { await player.play(); $('countdown').textContent = 'ĐANG PHÁT'; $('countdown').className = 'clock play'; $('msg').textContent = ''; }
   catch (e) { $('msg').textContent = 'Trình duyệt chặn tự phát – bấm “Phát thủ công”.'; $('btnPlay').classList.add('pulse'); }
 }
-player.onplay = () => status = 'đang phát';
+player.onplay = () => { status = 'đang phát'; report(true); };
 player.onpause = () => { if (!player.ended) status = 'tạm dừng'; };
-player.onended = () => { status = 'đã phát xong'; $('countdown').textContent = 'ĐÃ PHÁT XONG'; };
+player.onended = () => { status = 'đã phát xong'; report(true); $('countdown').textContent = 'ĐÃ PHÁT XONG'; };
 player.addEventListener('contextmenu', e => e.preventDefault());
 
 $('btnSpeaker').onclick = () => {   // bíp 1 giây; cú bấm này cũng cho phép trình duyệt tự phát âm thanh
@@ -188,6 +206,6 @@ $('btnSpeaker').onclick = () => {   // bíp 1 giây; cú bấm này cũng cho ph
 $('btnPlay').onclick = () => { if (confirm('Phát bài nghe ngay tại phòng này?')) play(); };
 $('btnLogin').onclick = login;
 $('inCode').onkeydown = e => { if (e.key === 'Enter') login(); };
-$('btnLogout').onclick = () => { if (confirm('Đăng xuất khỏi phòng này?')) { localStorage.removeItem('code'); localStorage.removeItem('token'); location.href = '/'; } };
+$('btnLogout').onclick = () => { if (confirm('Đăng xuất khỏi phòng này?')) { ls.del('code'); ls.del('token'); location.href = BASE + '/'; } };
 if (code) { $('inCode').value = code; start(); } else $('inCode').focus();
 </script></body></html>

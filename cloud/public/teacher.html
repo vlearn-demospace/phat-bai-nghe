@@ -80,9 +80,10 @@ const mmss = s => pad(Math.floor(s / 60)) + ':' + pad(Math.floor(s % 60));
 const show = (id, on) => $(id).classList.toggle('hidden', !on);
 function note(id, text) { $(id).textContent = text; show(id, !!text); }
 let S = null, audioFile = null, busy = false;
+const BASE = '/' + location.pathname.split('/')[1];   // /<trường>
 
 async function api(a, opt = {}) {
-  const r = await fetch(`/api/t/${a}${opt.q ? '?' + opt.q : ''}`, { method: opt.body !== undefined ? 'POST' : 'GET', body: opt.body, headers: opt.json ? { 'Content-Type': 'application/json' } : {}, cache: 'no-store' });
+  const r = await fetch(`${BASE}/api/t/${a}${opt.q ? '?' + opt.q : ''}`, { method: opt.body !== undefined ? 'POST' : 'GET', body: opt.body, headers: opt.json ? { 'Content-Type': 'application/json' } : {}, cache: 'no-store' });
   const d = await r.json().catch(() => ({}));
   if (!r.ok) { const e = new Error(d.error || 'Lỗi ' + r.status); e.code = r.status; throw e; }
   return d;
@@ -98,7 +99,7 @@ async function refresh() {
   show('empty', !S.exams.length); show('tbl', !!S.exams.length);
   const html = S.exams.map(e => `<tr><td><b>${esc(e.title)}</b><div class="mute small">${mb(e.size)}${e.dur ? ' · dài ' + mmss(e.dur) : ''}</div></td>
     <td class="small">${new Date(e.uploadedAt).toLocaleString('vi-VN')}</td>
-    <td class="small">${e.oldKey ? '<span style="color:var(--red)">Khoá trường đã đổi – cần đăng lại</span>' : e.t0 ? new Date(e.t0).toLocaleString('vi-VN') + ` · ${e.roomCount} phòng` : '<span class="mute">Chờ admin xếp lịch</span>'}</td>
+    <td class="small">${e.verified < 0 ? '<span style="color:var(--red)">Bài không giải mã được – xoá rồi đăng lại</span>' : e.t0 ? new Date(e.t0).toLocaleString('vi-VN') + ` · ${e.roomCount} phòng` : '<span class="mute">Chờ admin xếp lịch</span>'}</td>
     <td>${e.t0 ? '' : `<button class="b-red" data-del="${esc(e.id)}" style="margin:0">Xoá</button>`}</td></tr>`).join('');
   if ($('rows').dataset.h !== html) { $('rows').innerHTML = html; $('rows').dataset.h = html; }
 }
@@ -159,23 +160,27 @@ $('btnUp').onclick = async () => {
     const k = await crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt']);
     const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, k, plain));
     const enc = new Uint8Array(12 + ct.length); enc.set(iv); enc.set(ct, 12);
-    // Khoá của bài được bọc bằng khoá công khai của trường: chỉ file khoá của admin mới mở được
+    // Khoá của bài được bọc bằng khoá công khai của trường (dịch vụ chỉ mở khi đến giờ thi)
     const pub = await crypto.subtle.importKey('spki', fromPem(S.publicKey), { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['encrypt']);
     const wrappedKey = toB64(new Uint8Array(await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, pub, raw)));
+    // Có khoá LAN dự phòng: bọc thêm một lần để chạy được bằng bản LAN khi mất mạng
+    let lanWrappedKey;
+    if (S.lanPublicKey) { const lan = await crypto.subtle.importKey('spki', fromPem(S.lanPublicKey), { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['encrypt']); lanWrappedKey = toB64(new Uint8Array(await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, lan, raw))); }
     raw.fill(0);
     const sha256 = [...new Uint8Array(await crypto.subtle.digest('SHA-256', enc))].map(x => x.toString(16).padStart(2, '0')).join('');
-    const ext = audioFile.name.split('.').pop().toLowerCase(), CH = 2 * 1048576;
-    for (let off = 0; off < enc.length; off += CH) {
+    const ext = audioFile.name.split('.').pop().toLowerCase();
+    const up = await post('upload-start', { size: enc.length }), CH = up.part, parts = [];
+    for (let off = 0, n = 1; off < enc.length; off += CH, n++) {
       msg(`Đang gửi bản mã hoá… ${mb(Math.min(off + CH, enc.length))} / ${mb(enc.length)}`);
       bar(40 + 55 * off / enc.length);
       let tries = 0;
       for (;;) {
-        try { await api('chunk', { q: `offset=${off}`, body: new Blob([enc.subarray(off, off + CH)]) }); break; }
+        try { parts.push(await api('upload-part', { q: `id=${up.id}&n=${n}`, body: new Blob([enc.subarray(off, off + CH)]) })); break; }
         catch (e) { if (e.code || ++tries >= 3) throw e; await new Promise(r => setTimeout(r, 1000)); }   // lỗi mạng: thử lại 3 lần
       }
     }
-    msg('Đang hoàn tất…'); bar(97);
-    await post('finish', { title, mime: MIMES[ext] || audioFile.type, size: enc.length, sha256, wrappedKey, keyId: S.keyId, dur: $('preview').duration || 0 });
+    msg('Đang kiểm tra bài giải mã được…'); bar(97);
+    await post('upload-finish', { id: up.id, parts, lanWrappedKey, title, mime: MIMES[ext] || audioFile.type, size: enc.length, sha256, wrappedKey, keyId: S.keyId, dur: $('preview').duration || 0 });
     bar(100);
     note('upOk', `Đã đăng "${title}". Admin sẽ xếp lịch cho bài này.`);
     audioFile = null; $('file').value = ''; $('title').value = ''; show('fileInfo', false); $('preview').removeAttribute('src'); show('preview', false);

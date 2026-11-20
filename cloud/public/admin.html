@@ -59,15 +59,15 @@ table{width:100%;border-collapse:collapse;font-size:15px}td,th{padding:9px 8px;b
 
 <header>
   <h1>🎧 Phát bài nghe – Admin</h1>
-  <div class="chips"><span class="chip" id="chExam">Bài: –</span><span class="chip" id="chKey">Khoá: –</span><span class="chip" id="chNet">Từ xa: –</span></div>
+  <div class="chips"><span class="chip" id="chExam">Bài: –</span><span class="chip ok" id="chKey">Mở khoá: tự động</span><span class="chip" id="chNet">–</span></div>
 </header>
 
-<div id="lostConn" class="hidden" style="background:#dc2626;color:#fff;padding:12px 24px;font-weight:600">⚠ Mất kết nối với máy chủ – cửa sổ đen “Phát bài nghe” đã bị tắt? Bấm đúp lại MO-CHUONG-TRINH.bat. Trang sẽ tự kết nối lại.</div>
+<div id="lostConn" class="hidden" style="background:#dc2626;color:#fff;padding:12px 24px;font-weight:600">⚠ Mất kết nối với máy chủ – kiểm tra mạng Internet. Trang sẽ tự kết nối lại.</div>
 
 <main id="loginView" class="hidden">
   <div class="card" style="max-width:420px;margin:40px auto">
     <h2>Đăng nhập admin</h2>
-    <p class="mute">Bạn đang mở từ máy khác nên cần tài khoản admin. Trên chính máy chủ thì không cần đăng nhập.</p>
+    <p class="mute">Dùng tài khoản admin của trường.</p>
     <label>Tên đăng nhập</label><input type="text" id="un" autocomplete="username" autocapitalize="none">
     <label>Mật khẩu</label><input type="password" id="pw" autocomplete="current-password">
     <button id="btnLogin">Đăng nhập</button>
@@ -79,31 +79,17 @@ table{width:100%;border-collapse:collapse;font-size:15px}td,th{padding:9px 8px;b
   <button data-t="t1">Bài nghe</button>
   <button data-t="t2">Ngày thi</button>
   <button data-t="t3">Giáo viên &amp; KTV</button>
-  <button data-t="t4">Truy cập từ xa</button>
+  <button data-t="t4">Địa chỉ &amp; dự phòng</button>
 </nav>
 
 <main id="app" class="hidden">
 
 <!-- ========== BÀI NGHE ========== -->
 <section id="t1" class="tab">
-  <div class="card hidden" id="schoolNo">
-    <h2>Bước đầu tiên: tạo khoá trường</h2>
-    <p class="mute">Giáo viên cần khoá này để đăng bài. Máy chủ chỉ lưu phần công khai; phần bí mật tải về dưới dạng một <b>file khoá</b>, cất vào USB, sáng ngày thi nạp một lần là mở được mọi bài đến giờ.</p>
-    <button id="btnSchool" class="big-btn">🔑 Tạo khoá trường</button>
-    <div id="schoolErr" class="note err hidden"></div>
-  </div>
-  <div class="card hidden" id="schoolDone">
-    <h2>✅ Đã tạo khoá trường</h2>
-    <div class="note warn"><b>Quan trọng:</b> file khoá vừa được tải về (thư mục Tải xuống). Mất file này thì các bài chưa thi phải đăng lại.</div>
-    <button id="btnKeyAgain" class="b-green">⬇ Tải lại file khoá</button>
-    <label class="check"><input type="checkbox" id="ck1"> Tôi đã chép file khoá vào USB (nên chép 2 USB).</label>
-    <label class="check"><input type="checkbox" id="ck2"> Tôi đã xoá file khoá khỏi thư mục Tải xuống của máy này.</label>
-    <button id="btnKeyOk" disabled>Xong</button>
-  </div>
   <div class="card">
     <h2>Các bài đã đăng</h2>
     <p class="mute">Ai đăng bài nào, khi nào. Xếp giờ thi, phân phòng trên sơ đồ cho từng kỹ thuật viên, rồi in phiếu mã.</p>
-    <div id="noExam" class="note info hidden">Chưa có bài nào. Giáo viên đăng bài ở địa chỉ <b>/g</b>.</div>
+    <div id="noExam" class="note info hidden">Chưa có bài nào. Giáo viên đăng bài ở địa chỉ <b id="gHint">/g</b>.</div>
     <div class="scroll"><table id="examTbl" class="hidden"><thead><tr><th>Bài</th><th>Giáo viên</th><th>Đăng lúc</th><th>Giờ thi</th><th>Phòng</th><th></th></tr></thead><tbody id="examRows"></tbody></table></div>
   </div>
   <div class="card hidden" id="schedCard">
@@ -112,7 +98,7 @@ table{width:100%;border-collapse:collapse;font-size:15px}td,th{padding:9px 8px;b
       <div><label>Ngày thi</label><input type="date" id="date"></div>
       <div><label>Giờ mở khoá</label><input type="time" id="time" step="60"></div>
     </div>
-    <p class="mute small">Giờ tính theo đồng hồ của máy tính này: <b id="tzInfo"></b>. Máy phòng thi luôn dùng giờ máy chủ. Mã của các phòng đã có được giữ nguyên khi đổi lịch.</p>
+    <p class="mute small">Giờ tính theo đồng hồ của máy tính này: <b id="tzInfo"></b>. Máy phòng thi luôn dùng giờ máy chủ (Cloudflare). Mã của các phòng đã có được giữ nguyên khi đổi lịch.</p>
     <h3 style="margin-top:18px">Phân phòng cho kỹ thuật viên</h3>
     <p class="mute small">Chọn một kỹ thuật viên, rồi bấm vào các ô trên sơ đồ. Bấm lại ô đó để bỏ. Ô ghi “Trùng” là phòng đã dùng cho bài khác cùng giờ.</p>
     <div class="brushes" id="brushes"></div>
@@ -129,29 +115,15 @@ table{width:100%;border-collapse:collapse;font-size:15px}td,th{padding:9px 8px;b
     <button id="btnCodesX" class="b-grey">Đóng</button>
     <div class="scroll"><table style="margin-top:10px"><thead><tr><th>Phòng</th><th>Kỹ thuật viên</th><th>Mã</th><th>Link</th></tr></thead><tbody id="codeRows"></tbody></table></div>
   </div>
-  <div class="card hidden" id="schoolHas">
-    <h3>Khoá trường</h3>
-    <div class="mute small" id="schoolInfo"></div>
-    <button id="btnSchoolNew" class="b-red mini">Tạo khoá mới (các bài cũ sẽ không mở được)</button>
-  </div>
 </section>
 
 <!-- ========== NGÀY THI ========== -->
 <section id="t2" class="tab hidden">
   <div class="card">
-    <h3>Khoá trường</h3>
+    <h3>Mở khoá tự động</h3>
     <div class="mute small">Giờ máy chủ: <b id="clock"></b></div>
-    <div id="keyNo">
-      <p class="mute">Cắm USB, kéo thả file khoá vào ô dưới. Khoá chỉ giữ trong bộ nhớ máy chủ; tắt chương trình là mất, khi đó nạp lại.</p>
-      <div class="drop" id="kdrop"><b>Kéo thả file khoá vào đây</b><span class="mute">hoặc bấm để chọn file .txt</span></div>
-      <input type="file" id="kfile" accept=".txt,text/plain" hidden>
-      <div id="kErr" class="note err hidden"></div>
-    </div>
-    <div id="keyYes" class="hidden">
-      <div class="note ok">✓ Đã nạp khoá. Đến giờ, mỗi bài sẽ tự mở khoá cho các phòng của bài đó.</div>
-      <div id="keyBad" class="note err hidden"></div>
-      <button class="b-grey" id="btnUnkey">Gỡ khoá khỏi máy chủ</button>
-    </div>
+    <div class="note ok">✓ Đến giờ, dịch vụ tự mở khoá cho các phòng của từng bài. Không cần nạp khoá.</div>
+    <div id="keyBad" class="note err hidden"></div>
   </div>
   <div class="card" id="playAllCard">
     <h3>Phát đồng loạt nhiều bài</h3>
@@ -193,52 +165,47 @@ table{width:100%;border-collapse:collapse;font-size:15px}td,th{padding:9px 8px;b
   </div>
 </section>
 
-<!-- ========== TRUY CẬP TỪ XA ========== -->
+<!-- ========== ĐỊA CHỈ & DỰ PHÒNG ========== -->
 <section id="t4" class="tab hidden">
   <div class="card">
-    <h2>Cho giáo viên và máy phòng thi kết nối</h2>
-    <p class="mute">Bật đường hầm HTTPS miễn phí của Cloudflare (trình duyệt chỉ cho mã hoá và giải mã qua HTTPS).</p>
-    <div id="tunOff">
-      <button id="btnTunOn" class="b-green big-btn">🌐 Bật truy cập từ xa</button>
-      <div id="tunMsg" class="note info hidden"></div>
-    </div>
-    <div id="tunMissing" class="note err hidden">
-      <b>Máy này chưa cài cloudflared.</b> Mở <b>Command Prompt</b> và chạy lệnh dưới, rồi tắt và mở lại chương trình:
-      <div class="cmd">winget install Cloudflare.cloudflared</div>
-      <button class="b-light" data-copy="winget install Cloudflare.cloudflared">Sao chép lệnh</button>
-    </div>
-    <div id="tunOn" class="hidden">
-      <div class="note ok">Đang bật. Các địa chỉ:</div>
-      <label>Kỹ thuật viên (nhập mã)</label><div class="url" id="urlK"></div>
-      <label>Giáo viên (đăng bài)</label><div class="url" id="urlG"></div>
-      <label>Admin từ máy khác</label><div class="url" id="urlA"></div>
-      <button class="b-light" id="cpUrl">Sao chép địa chỉ kỹ thuật viên</button>
-      <button class="b-light" id="cpG">Sao chép địa chỉ giáo viên</button>
-      <button class="b-grey" id="btnTunOff">Tắt truy cập từ xa</button>
-      <h3 style="margin-top:20px">Shortcut cho máy phòng thi (khuyên dùng)</h3>
-      <p class="mute small">Tạo shortcut trên Desktop máy phòng thi, dán lệnh dưới vào ô “location”. Chrome sẽ mở toàn màn hình và được phép tự phát âm thanh. Thoát bằng Alt+F4.</p>
-      <div class="cmd" id="kiosk"></div>
-      <button class="b-light" id="cpKiosk">Sao chép lệnh shortcut</button>
-      <div class="note warn small" id="tunWarn">Địa chỉ dạng trycloudflare.com <b>đổi mỗi lần bật lại</b>. Nên bật một lần rồi để nguyên; phiếu mã in sau khi bật sẽ có sẵn link.</div>
-    </div>
-    <div id="remoteTun" class="note warn hidden">Chỉ bật/tắt được trên chính máy chủ.</div>
+    <h2>Địa chỉ của trường</h2>
+    <label>Kỹ thuật viên (nhập mã)</label><div class="url" id="urlK"></div>
+    <label>Giáo viên (đăng bài)</label><div class="url" id="urlG"></div>
+    <label>Admin</label><div class="url" id="urlA"></div>
+    <button class="b-light" id="cpUrl">Sao chép địa chỉ kỹ thuật viên</button>
+    <button class="b-light" id="cpG">Sao chép địa chỉ giáo viên</button>
+    <h3 style="margin-top:20px">Shortcut cho máy phòng thi (khuyên dùng)</h3>
+    <p class="mute small">Tạo shortcut trên Desktop máy phòng thi, dán lệnh dưới vào ô “location”. Chrome sẽ mở toàn màn hình và được phép tự phát âm thanh. Thoát bằng Alt+F4.</p>
+    <div class="cmd" id="kiosk"></div>
+    <button class="b-light" id="cpKiosk">Sao chép lệnh shortcut</button>
+    <div class="mute small" id="planInfo" style="margin-top:14px"></div>
+    <button class="b-grey" id="btnOut">Đăng xuất</button>
   </div>
-  <div class="card hidden" id="linkCard">
-    <h3>Link ngắn cố định</h3>
-    <p class="mute small" id="linkInfo"></p>
-    <div id="linkMsg" class="note err hidden"></div>
-    <div class="row">
-      <div><label>Địa chỉ</label><input type="text" id="linkUrl" placeholder="https://lvcnghe.pages.dev" autocomplete="off"></div>
-      <div><label>Mã link</label><input type="password" id="linkSecret" autocomplete="off"></div>
-    </div>
-    <button id="btnLink" class="b-light">Lưu link ngắn</button>
-    <div id="linkErr" class="note err hidden"></div>
+  <div class="card hidden" id="schoolNo">
+    <h2>Khoá LAN dự phòng (tuỳ chọn)</h2>
+    <p class="mute">Dịch vụ tự mở khoá đúng giờ, không cần khoá này. Tạo khoá LAN nếu muốn dự phòng khi mất Internet: từ đó mỗi bài đăng mới được bọc thêm bằng khoá LAN, mở được bằng chương trình chạy trên máy trường (bản LAN). Dịch vụ chỉ lưu phần công khai; phần bí mật tải về thành <b>file khoá</b>, cất vào USB.</p>
+    <button id="btnSchool" class="big-btn">🔑 Tạo khoá LAN dự phòng</button>
+    <div id="schoolErr" class="note err hidden"></div>
+  </div>
+  <div class="card hidden" id="schoolDone">
+    <h2>✅ Đã tạo khoá LAN</h2>
+    <div class="note warn"><b>Quan trọng:</b> file khoá vừa được tải về (thư mục Tải xuống). Dịch vụ không giữ bản nào của file này.</div>
+    <button id="btnKeyAgain" class="b-green">⬇ Tải lại file khoá</button>
+    <label class="check"><input type="checkbox" id="ck1"> Tôi đã chép file khoá vào USB (nên chép 2 USB).</label>
+    <label class="check"><input type="checkbox" id="ck2"> Tôi đã xoá file khoá khỏi thư mục Tải xuống của máy này.</label>
+    <button id="btnKeyOk" disabled>Xong</button>
+  </div>
+  <div class="card hidden" id="schoolHas">
+    <h3>Khoá LAN dự phòng</h3>
+    <div class="mute small" id="schoolInfo"></div>
+    <button id="btnSchoolNew" class="b-red mini">Gỡ khoá LAN</button>
   </div>
 </section>
 </main>
 
 <script>
 const $ = id => document.getElementById(id);
+const BASE = '/' + location.pathname.split('/')[1];   // /<trường>
 let S = null, tab = sessionStorage.getItem('tab') || 't1', lastKey = null, schedId = null, codesId = null, assign = {}, brush = '';
 const picks = new Set();
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -254,7 +221,7 @@ function note(id, text) { $(id).textContent = text; show(id, !!text); }
 function setHtml(el, html) { if (el._h !== html) { el.innerHTML = html; el._h = html; } }
 
 async function api(a, body) {
-  const r = await fetch('/api/admin/' + a, { method: body !== undefined ? 'POST' : 'GET', body: body !== undefined ? JSON.stringify(body) : undefined, headers: body !== undefined ? { 'Content-Type': 'application/json' } : {}, cache: 'no-store' });
+  const r = await fetch(BASE + '/api/admin/' + a, { method: body !== undefined ? 'POST' : 'GET', body: body !== undefined ? JSON.stringify(body) : undefined, headers: body !== undefined ? { 'Content-Type': 'application/json' } : {}, cache: 'no-store' });
   const d = await r.json().catch(() => ({}));
   if (!r.ok) { const e = new Error(d.error || 'Lỗi ' + r.status); e.code = r.status; throw e; }
   return d;
@@ -265,7 +232,7 @@ function go(t) { tab = t; sessionStorage.setItem('tab', t); document.querySelect
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => go(b.dataset.t));
 
 async function refresh() {
-  try { S = await api('status'); show('lostConn', false); }
+  try { S = await api('status'); S.hasKey = true; show('lostConn', false); }
   catch (e) {
     show('lostConn', !e.code);
     if (e.code === 403) { show('loginView', true); show('app', false); show('tabs', false); }
@@ -275,24 +242,19 @@ async function refresh() {
   render();
 }
 
-// Có link ngắn thì mọi địa chỉ phát ra đều dùng link ngắn, vì nó không đổi khi bật lại đường hầm
-const baseUrl = () => S.short?.url || S.tunnel.url || (S.local ? '' : location.origin);
+const baseUrl = () => location.origin + BASE;
 function roomLink(code) { const b = baseUrl(); return b ? `${b}/${code}` : ''; }
 
 function render() {
-  const now = S.now, ex = S.exams, sch = ex.filter(e => e.t0), tn = S.tunnel;
+  const now = S.now, ex = S.exams, sch = ex.filter(e => e.t0);
   // chips
   $('chExam').textContent = `Bài: ${ex.length} · đã xếp lịch: ${sch.length}`; $('chExam').className = 'chip ' + (ex.length ? 'ok' : '');
-  $('chKey').textContent = S.hasKey ? 'Khoá: đã nạp' : 'Khoá: chưa nạp'; $('chKey').className = 'chip ' + (S.hasKey ? 'ok' : '');
-  $('chNet').textContent = tn.status === 'on' ? 'Từ xa: đang bật' : tn.status === 'starting' ? 'Từ xa: đang mở…' : 'Từ xa: tắt';
-  $('chNet').className = 'chip ' + (tn.status === 'on' ? 'ok' : '');
+  $('chNet').textContent = S.school.ten; document.title = 'Admin – ' + S.school.ten; $('gHint').textContent = baseUrl() + '/g';
 
   // ----- Bài nghe
-  show('schoolNo', !S.hasSchoolKey && !lastKey); show('schoolHas', S.hasSchoolKey && !lastKey);
-  if (S.hasSchoolKey) $('schoolInfo').textContent = 'Tạo lúc ' + new Date(S.schoolKeyAt).toLocaleString('vi-VN');
   show('noExam', !ex.length); show('examTbl', !!ex.length);
   setHtml($('examRows'), ex.map(e => `<tr>
-    <td><b>${esc(e.title)}</b><div class="mute small">${mb(e.size)}${e.dur ? ' · dài ' + mmss(e.dur) : ''}${e.oldKey ? ' · <span class="off">khoá trường đã đổi, cần đăng lại</span>' : ''}${e.bad ? ' · <span class="off">không mở được, cần đăng lại</span>' : ''}</div></td>
+    <td><b>${esc(e.title)}</b><div class="mute small">${mb(e.size)}${e.dur ? ' · dài ' + mmss(e.dur) : ''}${S.school.lanKey && !e.lan ? ' · <span class="mute">không có khoá LAN</span>' : ''}${e.bad ? ' · <span class="off">không mở được, cần đăng lại</span>' : ''}</div></td>
     <td>${esc(e.teacherName)}</td>
     <td class="small">${fmtShort(e.uploadedAt)}</td>
     <td class="small">${e.t0 ? fmtShort(e.t0) : '<span class="mute">chưa xếp</span>'}</td>
@@ -303,14 +265,13 @@ function render() {
   show('codesCard', !!cx);
   if (cx) {
     $('codesTitle').textContent = 'Mã phòng – ' + cx.title;
-    setHtml($('codeRows'), roomsByKtv(cx).map(([r, c]) => `<tr><td><b>${roomName(r)}</b> <span class="mute small">${esc(roomLabel(r))}</span></td><td>${esc(ktvName(cx.ktv[r])) || '<span class="mute">chưa phân</span>'}</td><td class="code">${c}</td><td class="small mute">${esc(roomLink(c)) || '(bật truy cập từ xa để có link)'}</td></tr>`).join(''));
+    setHtml($('codeRows'), roomsByKtv(cx).map(([r, c]) => `<tr><td><b>${roomName(r)}</b> <span class="mute small">${esc(roomLabel(r))}</span></td><td>${esc(ktvName(cx.ktv[r])) || '<span class="mute">chưa phân</span>'}</td><td class="code">${c}</td><td class="small mute">${esc(roomLink(c))}</td></tr>`).join(''));
   }
   if (schedId && !ex.find(e => e.id === schedId)) { schedId = null; show('schedCard', false); }
   if (schedId) drawMap();
 
   // ----- Ngày thi
   $('clock').textContent = new Date(now).toLocaleTimeString('vi-VN');
-  show('keyNo', !S.hasKey); show('keyYes', S.hasKey);
   const bad = ex.filter(e => e.bad);
   note('keyBad', bad.length ? '⚠ Không mở được: ' + bad.map(e => e.title).join(', ') + '. Nhờ giáo viên đăng lại.' : '');
   show('noSched', !sch.length); show('playAllCard', sch.length > 1);
@@ -362,29 +323,22 @@ function render() {
   setHtml($('userRows'), S.users.map(u => `<tr><td><b>${esc(u.name)}</b></td><td>${esc(u.username)}</td><td>${u.role === 'admin' ? 'Admin' : 'Giáo viên'}</td><td>${u.examCount}</td>
     <td style="white-space:nowrap"><button class="mini b-light" data-reset="${u.id}">Đặt lại mật khẩu</button><button class="mini b-red" data-udel="${u.id}">Xoá</button></td></tr>`).join(''));
 
-  // ----- Truy cập từ xa
-  show('remoteTun', !S.local);
-  show('tunMissing', S.local && tn.status === 'missing');
-  show('tunOff', S.local && tn.status !== 'on' && tn.status !== 'missing');
-  show('tunOn', tn.status === 'on' && S.local);
-  $('btnTunOn').disabled = tn.status === 'starting';
-  note('tunMsg', tn.msg);
+  // ----- Địa chỉ & dự phòng
   const b = baseUrl();
   $('urlK').textContent = b; $('urlG').textContent = b + '/g'; $('urlA').textContent = b + '/a';
   $('kiosk').textContent = `"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" --kiosk --autoplay-policy=no-user-gesture-required ${b}/`;
-  show('tunWarn', !S.short);
-  note('linkMsg', S.short?.msg || '');
-  $('linkInfo').textContent = S.short ? `Đang dùng ${S.short.url}. Máy chủ tự báo địa chỉ mới mỗi lần bật truy cập từ xa.` : 'Chưa cài. Nhập địa chỉ và mã link để phiếu in ra có link không đổi.';
-  show('linkCard', S.local);
+  $('planInfo').textContent = `Gói: ${S.school.goi}` + (S.school.hetHan ? ` · hết hạn ${new Date(S.school.hetHan).toLocaleDateString('vi-VN')}` : '');
+  show('schoolNo', !S.school.lanKey && !lastKey); show('schoolHas', S.school.lanKey && !lastKey);
+  $('schoolInfo').textContent = 'Bài đăng sau khi tạo khoá LAN được bọc thêm bằng khoá này.';
 }
 
-// ---------- Khoá trường: tạo ngay trong trình duyệt, máy chủ chỉ nhận phần công khai ----------
+// ---------- Khoá LAN dự phòng: tạo ngay trong trình duyệt, dịch vụ chỉ nhận phần công khai ----------
 const b64 = u8 => { let s = ''; for (let i = 0; i < u8.length; i += 8192) s += String.fromCharCode(...u8.subarray(i, i + 8192)); return btoa(s); };
 const pem = (buf, label) => `-----BEGIN ${label}-----\n${b64(new Uint8Array(buf)).match(/.{1,64}/g).join('\n')}\n-----END ${label}-----\n`;
 function downloadKey(text) {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }));
-  a.download = 'KHOA-TRUONG-phat-bai-nghe.txt';
+  a.download = 'KHOA-LAN-phat-bai-nghe.txt';
   document.body.appendChild(a); a.click(); a.remove();
 }
 async function makeSchoolKey() {
@@ -394,14 +348,14 @@ async function makeSchoolKey() {
     const kp = await crypto.subtle.generateKey({ name: 'RSA-OAEP', modulusLength: 3072, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' }, true, ['encrypt', 'decrypt']);
     const priv = pem(await crypto.subtle.exportKey('pkcs8', kp.privateKey), 'PRIVATE KEY');
     const pub = pem(await crypto.subtle.exportKey('spki', kp.publicKey), 'PUBLIC KEY');
-    await api('school-key', { publicKey: pub });
-    lastKey = `KHOÁ TRƯỜNG – PHÁT BÀI NGHE – GIỮ BÍ MẬT\r\nTạo lúc: ${new Date().toLocaleString('vi-VN')}\r\nSáng ngày thi: mở trang admin > Ngày thi > kéo thả file này vào ô nạp khoá.\r\n\r\n${priv}`;
+    await api('lan-key', { publicKey: pub });
+    lastKey = `KHOÁ LAN DỰ PHÒNG – PHÁT BÀI NGHE – GIỮ BÍ MẬT\r\nTạo lúc: ${new Date().toLocaleString('vi-VN')}\r\nChỉ dùng khi mất Internet: mở bản LAN trên máy trường > Ngày thi > kéo thả file này vào ô nạp khoá.\r\n\r\n${priv}`;
     downloadKey(lastKey);
     show('schoolDone', true); refresh();
   } catch (e) { note('schoolErr', 'Lỗi: ' + e.message); }
 }
 $('btnSchool').onclick = makeSchoolKey;
-$('btnSchoolNew').onclick = () => { if (confirm('Tạo khoá trường MỚI? Mọi bài đã đăng sẽ không mở được nữa và phải đăng lại.') && confirm('Xác nhận lần 2: tạo khoá mới?')) makeSchoolKey(); };
+$('btnSchoolNew').onclick = () => { if (confirm('Gỡ khoá LAN? Bài đăng sau đó sẽ không có bản dự phòng LAN.')) act('lan-key', {}); };
 $('btnKeyAgain').onclick = () => lastKey && downloadKey(lastKey);
 ['ck1', 'ck2'].forEach(id => $(id).onchange = () => $('btnKeyOk').disabled = !($('ck1').checked && $('ck2').checked));
 $('btnKeyOk').onclick = () => { lastKey = null; show('schoolDone', false); ['ck1', 'ck2'].forEach(id => $(id).checked = false); $('btnKeyOk').disabled = true; refresh(); };
@@ -517,18 +471,6 @@ $('btnPrint').onclick = () => {
 };
 
 // ---------- Ngày thi ----------
-async function loadKey(text) {
-  note('kErr', '');
-  const m = String(text).match(/-----BEGIN PRIVATE KEY-----[\s\S]+?-----END PRIVATE KEY-----/);
-  if (!m) return note('kErr', 'Không tìm thấy khoá trong file này.');
-  try { await api('key', { key: m[0] }); refresh(); } catch (e) { note('kErr', e.code ? e.message : 'Mất kết nối với máy chủ.'); }
-}
-const kz = $('kdrop');
-kz.onclick = () => $('kfile').click(); $('kfile').onchange = async () => { const f = $('kfile').files[0]; if (f) loadKey(await f.text()); $('kfile').value = ''; };
-kz.ondragover = e => { e.preventDefault(); kz.classList.add('over'); };
-kz.ondragleave = () => kz.classList.remove('over');
-kz.ondrop = async e => { e.preventDefault(); kz.classList.remove('over'); const f = e.dataTransfer.files[0]; if (f) loadKey(await f.text()); };
-$('btnUnkey').onclick = () => { if (confirm('Gỡ khoá? Các phòng chưa mở khoá sẽ không mở được cho đến khi nạp lại.')) act('unkey', {}); };
 $('playPicks').onchange = ev => { const id = ev.target.dataset.pick; if (id) { ev.target.checked ? picks.add(id) : picks.delete(id); render(); } };
 $('btnPlayMany').onclick = () => {
   const list = S.exams.filter(e => picks.has(e.id) && e.released);
@@ -570,33 +512,27 @@ $('userRows').onclick = async ev => {
   if (d.udel) { const u = find(d.udel); if (confirm(`Xoá tài khoản ${u.name}? Các bài đã đăng vẫn được giữ.`)) act('user-delete', { id: u.id }); }
 };
 
-// ---------- Truy cập từ xa ----------
-$('btnTunOn').onclick = () => act('tunnel-start', {});
-$('btnTunOff').onclick = () => { if (confirm('Tắt truy cập từ xa? Giáo viên và các phòng sẽ mất kết nối, và lần bật sau địa chỉ sẽ đổi.')) act('tunnel-stop', {}); };
+// ---------- Địa chỉ ----------
+$('btnOut').onclick = async () => { await fetch(BASE + '/api/t/logout', { method: 'POST' }); location.reload(); };
 async function copy(text, btn) { try { await navigator.clipboard.writeText(text); const o = btn.textContent; btn.textContent = '✓ Đã sao chép'; setTimeout(() => btn.textContent = o, 1500); } catch { prompt('Sao chép thủ công:', text); } }
 $('cpUrl').onclick = e => copy(baseUrl(), e.target);
 $('cpG').onclick = e => copy(baseUrl() + '/g', e.target);
-$('btnLink').onclick = async () => {
-  note('linkErr', '');
-  try { await api('link-set', { url: $('linkUrl').value, secret: $('linkSecret').value }); $('linkSecret').value = ''; refresh(); }
-  catch (e) { note('linkErr', e.code ? e.message : 'Mất kết nối với máy chủ.'); }
-};
 $('cpKiosk').onclick = e => copy($('kiosk').textContent, e.target);
 document.querySelectorAll('[data-copy]').forEach(b => b.onclick = () => copy(b.dataset.copy, b));
 
-// ---------- Đăng nhập từ xa ----------
+// ---------- Đăng nhập ----------
 $('btnLogin').onclick = async () => {
   note('loginErr', '');
   try {
-    const r = await fetch('/api/t/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: $('un').value, password: $('pw').value }) });
+    const r = await fetch(BASE + '/api/t/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: $('un').value, password: $('pw').value }) });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) return note('loginErr', d.error || 'Lỗi đăng nhập');
-    if (d.role !== 'admin') return note('loginErr', 'Tài khoản này không phải admin. Giáo viên đăng bài ở địa chỉ /g.');
+    if (d.role !== 'admin') return note('loginErr', 'Tài khoản này không phải admin. Giáo viên đăng bài ở địa chỉ ' + BASE + '/g.');
     $('pw').value = ''; refresh();
   } catch { note('loginErr', 'Không kết nối được máy chủ.'); }
 };
 $('pw').onkeydown = e => { if (e.key === 'Enter') $('btnLogin').click(); };
 
 (() => { const off = -new Date().getTimezoneOffset(); $('tzInfo').textContent = `UTC${off >= 0 ? '+' : '−'}${pad(Math.abs(off) / 60 | 0)}:${pad(Math.abs(off) % 60)}`; })();
-go(tab); refresh(); setInterval(refresh, 1000);
+go(tab); refresh(); setInterval(refresh, 2000);
 </script></body></html>
