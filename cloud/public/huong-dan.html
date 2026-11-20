@@ -1,0 +1,336 @@
+<!doctype html><html lang="vi"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hướng dẫn – Phát bài nghe</title>
+<meta name="description" content="Hướng dẫn sử dụng Phát bài nghe có khoá theo giờ: admin trường, giáo viên, kỹ thuật viên, ngày thi, dự phòng LAN, bảo mật, xử lý sự cố.">
+<link rel="icon" href="/vlearn-logo.png">
+<meta name="theme-color" content="#0b3162">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/vlearn.css">
+<style>
+/* Trang tài liệu: mục lục dọc bên trái (máy tính), thanh pill ngang (điện thoại). Cỡ chữ theo thang cố định của VLearn. */
+.wrap { max-width: 1120px; margin: 0 auto; padding: 28px clamp(16px, 3vw, 44px) 60px; display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 22px; align-items: start; }
+.toc { position: sticky; top: 16px; background: rgb(var(--white)); border: 1px solid rgb(var(--line)); border-radius: 18px; padding: 14px 10px; }
+.toc .grp { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: rgb(var(--slate)); padding: 4px 12px 8px; }
+.toc a { display: block; padding: 10px 12px; border-radius: 10px; color: rgb(var(--ink)); text-decoration: none; font-weight: 500; font-size: 14px; }
+.toc a:hover { background: rgb(var(--rowhover)); color: rgb(var(--navy-text)); }
+.toc a.on { background: rgb(var(--navy)); color: #fff; font-weight: 700; }
+.pills { display: none; }
+.doc { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+.hello { font-size: 13px; color: rgb(var(--slate)); margin: 0 0 4px; }
+.doc h1 { margin: 0; font-size: 30px; line-height: 1.15; font-weight: 700; color: rgb(var(--navy-text)); }
+.lead { font-size: 15px; margin: 10px 0 0; max-width: 70ch; }
+section.card { padding: 0; scroll-margin-top: 16px; }
+section.card > h2 { font-size: 15px; padding: 14px 18px; margin: 0; border-bottom: 1px solid rgb(var(--line)); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.body { padding: 18px; }
+.body > :first-child { margin-top: 0; }
+.body h3 { margin: 22px 0 8px; }
+.body p, .body li { max-width: 72ch; }
+.body ol, .body ul { margin: 6px 0 12px; padding-left: 22px; }
+.body li { margin: 4px 0; }
+.body li::marker { color: rgb(var(--slate)); }
+.body ol.flow { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin: 14px 0 4px; padding: 0; list-style: none; }
+a.chip { text-decoration: none; }
+.flow li { border: 1px solid rgb(var(--line)); border-radius: 14px; padding: 14px; margin: 0; max-width: none; background: rgb(var(--white)); }
+.flow b { display: block; color: rgb(var(--navy-text)); font-size: 14px; margin: 8px 0 4px; }
+.flow span { font-size: 13px; color: rgb(var(--slate)); }
+.num { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 24px; padding: 0 8px; border-radius: 9999px; background: rgb(var(--orange)); color: rgb(var(--on-orange)); font-weight: 700; font-size: 12px; }
+.flow li.key { border-color: rgb(var(--navy-text)); }
+.addr td:first-child { white-space: nowrap; }
+.addr code, .body code { font-size: 13px; }
+kbd { font-family: inherit; font-size: 12px; font-weight: 700; padding: 1px 7px; border: 1px solid rgb(var(--mist)); border-bottom-width: 2px; border-radius: 7px; background: rgb(var(--white)); color: rgb(var(--navy-text)); }
+.ui { font-weight: 700; color: rgb(var(--navy-text)); }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.mini-card { border: 1px solid rgb(var(--line)); border-radius: 14px; padding: 14px; }
+.mini-card h3 { margin: 0 0 6px; }
+.mini-card p { margin: 0; font-size: 13px; }
+table.issues td:first-child { width: 38%; }
+.foot { font-size: 12px; color: rgb(var(--slate)); text-align: center; }
+@media (max-width: 860px) {
+  .wrap { grid-template-columns: minmax(0, 1fr); padding-top: 0; }
+  .toc { display: none; }
+  .pills { display: flex; gap: 8px; overflow-x: auto; padding: 14px 0 2px; margin: 0; width: 100%; max-width: none; position: sticky; top: 0; background: rgb(var(--page)); z-index: 2; }
+  .pills a { flex: none; padding: 8px 16px; border-radius: 9999px; border: 1px solid rgb(var(--line)); background: rgb(var(--white)); color: rgb(var(--ink)); font-weight: 600; font-size: 14px; text-decoration: none; white-space: nowrap; }
+  .pills a.on { background: rgb(var(--navy)); border-color: rgb(var(--navy)); color: #fff; }
+  section.card { scroll-margin-top: 64px; }
+  .doc h1 { font-size: 24px; }
+}
+@media print { .toc, .pills, header .chips { display: none !important; } .wrap { display: block; } section.card { break-inside: avoid-page; margin-bottom: 16px; } }
+</style></head><body>
+
+<header>
+  <div class="brand"><img src="/vlearn-logo.png" alt="VLearn"><div><div class="eyebrow">Phát bài nghe · VLearn</div><h1>Hướng dẫn sử dụng</h1></div></div>
+  <div class="chips"><a class="chip ok" id="backLink" href="/">Về trang của trường</a></div>
+</header>
+
+<div class="wrap">
+  <aside class="toc" aria-label="Mục lục">
+    <div class="grp">Mục lục</div>
+    <a href="#tong-quan">Tổng quan</a>
+    <a href="#admin">Admin trường</a>
+    <a href="#giao-vien">Giáo viên</a>
+    <a href="#ky-thuat-vien">Kỹ thuật viên</a>
+    <a href="#ngay-thi">Ngày thi</a>
+    <a href="#du-phong">Dự phòng khi mất mạng</a>
+    <a href="#bao-mat">Bảo mật tài khoản</a>
+    <a href="#su-co">Xử lý sự cố</a>
+    <a href="#vlearn">Dành cho VLearn</a>
+  </aside>
+
+  <div class="doc">
+    <nav class="pills" aria-label="Mục lục">
+      <a href="#tong-quan">Tổng quan</a><a href="#admin">Admin</a><a href="#giao-vien">Giáo viên</a><a href="#ky-thuat-vien">Kỹ thuật viên</a>
+      <a href="#ngay-thi">Ngày thi</a><a href="#du-phong">Dự phòng</a><a href="#bao-mat">Bảo mật</a><a href="#su-co">Sự cố</a><a href="#vlearn">VLearn</a>
+    </nav>
+
+    <div>
+      <p class="hello">Phát bài nghe có khoá theo giờ</p>
+      <h1>Đề nghe đến phòng thi từ sớm, chỉ mở được đúng giờ</h1>
+      <p class="lead">Giáo viên đăng file nghe đã mã hoá, máy các phòng tải về trước giờ thi, và dịch vụ chỉ trao khoá mở bài khi đồng hồ của Cloudflare đến giờ admin đã đặt. Không ai nghe được đề sớm – kể cả người cầm máy phòng thi.</p>
+    </div>
+
+    <!-- ===================== TỔNG QUAN ===================== -->
+    <section class="card" id="tong-quan">
+      <h2>Tổng quan</h2>
+      <div class="body">
+        <h3 style="margin-top:0">Cách khoá theo giờ hoạt động</h3>
+        <ol class="flow">
+          <li><span class="num">1</span><b>Giáo viên đăng bài</b><span>File được mã hoá ngay trên máy giáo viên rồi mới gửi lên. Máy chủ không nhận bản nghe được.</span></li>
+          <li><span class="num">2</span><b>Admin xếp giờ</b><span>Chọn ngày, giờ mở khoá và các phòng trên sơ đồ; in phiếu mã cho từng phòng.</span></li>
+          <li><span class="num">3</span><b>Máy phòng tải sớm</b><span>Kỹ thuật viên nhập mã phòng; máy tải bản đã mã hoá về trước, không cần mạng mạnh lúc thi.</span></li>
+          <li class="key"><span class="num">4</span><b>Đúng giờ mới có khoá</b><span>Dịch vụ tự trao khoá cho máy phòng khi đến giờ. Hỏi sớm một giây cũng bị từ chối.</span></li>
+          <li><span class="num">5</span><b>Phát đồng loạt</b><span>Admin bấm phát; phòng sát vách tự sang đợt 2 để không vọng tiếng sang nhau.</span></li>
+        </ol>
+
+        <h3>Ba vai trong trường</h3>
+        <div class="cols">
+          <div class="mini-card"><h3>Admin trường</h3><p>Tạo tài khoản, sửa sơ đồ phòng, xếp lịch, in phiếu mã, theo dõi và ra lệnh phát trong ngày thi.</p></div>
+          <div class="mini-card"><h3>Giáo viên</h3><p>Đăng file nghe, xem bài của mình đã được xếp lịch chưa. Không thấy bài của người khác.</p></div>
+          <div class="mini-card"><h3>Kỹ thuật viên</h3><p>Không cần tài khoản. Chỉ cần mã 4 ký tự in trên phiếu của phòng mình phụ trách.</p></div>
+        </div>
+
+        <h3>Địa chỉ của trường</h3>
+        <p>Thay <code data-slug>mã-trường</code> bằng mã trường do VLearn cấp (ví dụ <code>lvc</code>). Admin xem và sao chép đủ các địa chỉ này ở tab <span class="ui">Cài đặt trường</span>.</p>
+        <div class="scroll"><table class="addr">
+          <thead><tr><th>Ai dùng</th><th>Địa chỉ</th></tr></thead>
+          <tbody>
+            <tr><td><b>Admin</b></td><td><code><span data-origin></span>/<span data-slug>mã-trường</span>/a</code></td></tr>
+            <tr><td><b>Giáo viên</b></td><td><code><span data-origin></span>/<span data-slug>mã-trường</span>/g</code></td></tr>
+            <tr><td><b>Máy phòng thi</b></td><td><code><span data-origin></span>/<span data-slug>mã-trường</span>/</code> rồi nhập mã, hoặc mở thẳng <code>…/<span data-slug>mã-trường</span>/K7M2</code> (mã in trên phiếu)</td></tr>
+          </tbody>
+        </table></div>
+        <div class="note info">Dùng Chrome hoặc Edge bản mới trên mọi máy. Máy phòng thi nên mở bằng <b>shortcut toàn màn hình</b> (xem phần Admin), để trình duyệt được phép tự phát âm thanh.</div>
+      </div>
+    </section>
+
+    <!-- ===================== ADMIN ===================== -->
+    <section class="card" id="admin">
+      <h2>Admin trường <span class="chip navy">/a</span></h2>
+      <div class="body">
+        <h3 style="margin-top:0">Lần đầu đăng nhập</h3>
+        <ol>
+          <li>Mở địa chỉ admin, đăng nhập bằng tài khoản VLearn gửi. Mật khẩu chỉ được gửi một lần – cất kỹ.</li>
+          <li>Vào tab <span class="ui">Cài đặt trường</span> › <span class="ui">Bật xác thực 2 lớp</span> (khuyên làm ngay, xem <a href="#bao-mat">Bảo mật</a>).</li>
+          <li>Kiểm tra <span class="ui">Sơ đồ phòng</span> đúng với trường. Sơ đồ dùng để chọn phòng khi xếp lịch và để tách phòng sát vách sang đợt 2.</li>
+        </ol>
+
+        <h3>Sửa sơ đồ phòng</h3>
+        <p>Tab <span class="ui">Cài đặt trường</span> › <span class="ui">Sơ đồ phòng</span>. Mỗi khu một dòng bắt đầu bằng <code>#</code>, mỗi tầng một dòng:</p>
+        <div class="cmd"># KHU A (DÃY TRƯỚC)<br>Tầng 2 [PHÒNG ĐỢI]: 201 10A1; 202 10A2; |; 203 10A3; 204 10A4<br>Tầng 1: 101 11A1; 102 11A2; |; 103 12A1</div>
+        <ul>
+          <li>Các ô cách nhau bằng dấu <code>;</code>. Mỗi ô: <b>số phòng</b> rồi <b>tên lớp</b>.</li>
+          <li><code>|</code> là cầu thang: hai phòng hai bên cầu thang không bị coi là sát vách.</li>
+          <li>Phần <code>[…]</code> sau số tầng (phòng đợi, kho…) không bắt buộc.</li>
+          <li>Bấm <span class="ui">Xem trước</span> để thấy sơ đồ, rồi <span class="ui">Lưu sơ đồ</span>. Phòng đang có lịch thi chưa xong thì không xoá được.</li>
+        </ul>
+
+        <h3>Tài khoản giáo viên và danh sách kỹ thuật viên</h3>
+        <ol>
+          <li>Tab <span class="ui">Giáo viên &amp; KTV</span> › <span class="ui">Tạo tài khoản</span>: nhập họ tên, tên đăng nhập (không dấu), chọn vai trò. Mật khẩu tạo tự động và <b>chỉ hiện một lần</b> – chép gửi giáo viên.</li>
+          <li>Quên mật khẩu: bấm <span class="ui">Đặt lại mật khẩu</span> ở dòng của người đó. Việc này cũng gỡ khoá nếu tài khoản đang bị khoá vì nhập sai, và gỡ xác thực 2 lớp.</li>
+          <li>Kỹ thuật viên chỉ cần thêm <b>tên</b> ở mục <span class="ui">Kỹ thuật viên</span> để phân phòng – họ không đăng nhập bằng tài khoản.</li>
+        </ol>
+
+        <h3>Xếp lịch và phân phòng</h3>
+        <ol>
+          <li>Tab <span class="ui">Bài nghe</span>, ở dòng bài cần thi bấm <span class="ui">Xếp lịch</span>.</li>
+          <li>Chọn <span class="ui">Ngày thi</span> và <span class="ui">Giờ mở khoá</span> – đây là lúc máy phòng được phép mở bài.</li>
+          <li>Chọn một kỹ thuật viên ở hàng nút phía trên sơ đồ, rồi bấm vào các ô phòng của người đó. Bấm lại để bỏ. Ô ghi <span class="chip">Trùng</span> là phòng đã dùng cho bài khác cùng giờ.</li>
+          <li><span class="ui">Lưu lịch và phân phòng</span>. Mỗi phòng nhận một mã 4 ký tự; xếp lại giờ hoặc thêm phòng thì mã cũ giữ nguyên.</li>
+          <li><span class="ui">In phiếu mã phòng</span>: phiếu xếp theo từng kỹ thuật viên để phát tận tay.</li>
+        </ol>
+        <div class="note warn"><b>Mã phòng chỉ dùng được từ 24 giờ trước giờ thi đến 3 giờ sau khi bài thi kết thúc.</b> Phát phiếu sớm hơn cũng được, nhưng kỹ thuật viên chỉ nhập mã được trong khoảng đó.</div>
+
+        <h3>Shortcut toàn màn hình cho máy phòng thi</h3>
+        <p>Tab <span class="ui">Cài đặt trường</span> › <span class="ui">Sao chép lệnh shortcut</span>. Trên Desktop máy phòng: chuột phải › <i>New › Shortcut</i> › dán lệnh vào ô <i>location</i>. Chrome mở toàn màn hình và được tự phát âm thanh. Thoát bằng <kbd>Alt</kbd> + <kbd>F4</kbd>.</p>
+      </div>
+    </section>
+
+    <!-- ===================== GIÁO VIÊN ===================== -->
+    <section class="card" id="giao-vien">
+      <h2>Giáo viên <span class="chip navy">/g</span></h2>
+      <div class="body">
+        <h3 style="margin-top:0">Đăng bài nghe</h3>
+        <ol>
+          <li>Mở địa chỉ giáo viên, đăng nhập bằng tài khoản admin cấp. Nên đổi mật khẩu ở mục <span class="ui">Đổi mật khẩu</span> ngay lần đầu.</li>
+          <li>Kéo thả file nghe (mp3, m4a, wav… tối đa 500 MB) vào ô, nghe thử ở trình phát bên dưới để chắc đúng file.</li>
+          <li>Đặt <span class="ui">Tên bài</span> rõ ràng (vd. <i>Anh 11 – Giữa kỳ I – Mã đề 01</i>) rồi bấm <span class="ui">🔒 Mã hoá và đăng bài</span>.</li>
+          <li>Đợi thanh tiến trình chạy hết và bài hiện trong <span class="ui">Bài của tôi</span>. Dịch vụ thử giải mã ngay lúc đăng; nếu bài báo lỗi, xoá và đăng lại.</li>
+        </ol>
+        <div class="note info">File được mã hoá <b>trên máy của thầy cô</b> trước khi gửi lên. Trên máy chủ chỉ có bản đã mã hoá; khoá mở bài do dịch vụ giữ và chỉ trao cho máy phòng đúng giờ thi.</div>
+        <h3>Sau khi đăng</h3>
+        <ul>
+          <li>Cột lịch hiện <span class="chip">Chờ admin xếp lịch</span> cho đến khi admin xếp giờ; sau đó hiện ngày giờ và số phòng.</li>
+          <li>Bài chưa xếp lịch thì tự xoá được. Bài đã xếp lịch muốn xoá phải nhờ admin.</li>
+          <li>Thầy cô không thấy bài của giáo viên khác, và không xem được mã phòng.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ===================== KỸ THUẬT VIÊN ===================== -->
+    <section class="card" id="ky-thuat-vien">
+      <h2>Kỹ thuật viên – máy phòng thi</h2>
+      <div class="body">
+        <h3 style="margin-top:0">Trước giờ thi (nên làm sớm 30–60 phút)</h3>
+        <ol>
+          <li>Mở shortcut toàn màn hình trên máy phòng (hoặc địa chỉ máy phòng thi của trường).</li>
+          <li>Nhập <b>mã 4 ký tự</b> trên phiếu của phòng › <span class="ui">Vào phòng</span>. Màn hình hiện tên bài, phòng, giờ thi và tên kỹ thuật viên.</li>
+          <li>Bấm <span class="ui">🔊 Thử loa</span>, chỉnh âm lượng loa phòng. Dòng trạng thái chuyển thành <span class="chip ok">Loa đã kích hoạt</span>.</li>
+          <li>Đợi máy tải xong bản đã mã hoá: trạng thái <span class="chip">đã tải – chờ giờ</span>. Từ đây có rớt mạng ngắn cũng không sao.</li>
+        </ol>
+        <div class="note warn"><b>Để nguyên máy, không tắt trình duyệt, không cho máy ngủ.</b> Mở lại trang thì vẫn vào lại được phòng mà không cần nhập mã.</div>
+        <h3>Đến giờ</h3>
+        <ol>
+          <li>Đúng giờ mở khoá, máy tự nhận khoá: <span class="chip ok">Đã mở khoá – sẵn sàng phát</span>.</li>
+          <li>Màn hình ghi <i>Chờ lệnh phát đồng loạt từ admin</i>. Khi admin bấm phát, bài tự chạy sau 5 giây.</li>
+          <li>Phòng sát vách có thể được xếp <b>đợt 2</b>: màn hình báo giờ phát cụ thể. Cứ để nguyên máy.</li>
+        </ol>
+        <h3>Nút <span class="ui">▶ Phát thủ công</span></h3>
+        <p>Chỉ bấm khi admin hoặc cán bộ coi thi chỉ đạo – ví dụ trình duyệt chặn tự phát, hoặc lệnh phát đã quá 15 giây mà máy chưa chạy. Nút chỉ bấm được sau khi đã mở khoá.</p>
+      </div>
+    </section>
+
+    <!-- ===================== NGÀY THI ===================== -->
+    <section class="card" id="ngay-thi">
+      <h2>Ngày thi – việc cần làm theo giờ</h2>
+      <div class="body">
+        <div class="scroll"><table>
+          <thead><tr><th>Khi nào</th><th>Ai</th><th>Việc</th></tr></thead>
+          <tbody>
+            <tr><td><b>Trước 1–3 ngày</b></td><td>Giáo viên</td><td>Đăng bài, nghe thử trước khi đăng.</td></tr>
+            <tr><td><b>Trước 1 ngày</b></td><td>Admin</td><td>Xếp lịch, phân phòng, in phiếu mã. Nếu dùng dự phòng LAN: tải <span class="ui">gói dự phòng</span> sau khi xếp lịch xong.</td></tr>
+            <tr><td><b>Sáng ngày thi</b></td><td>Kỹ thuật viên</td><td>Bật máy, mở shortcut, nhập mã, thử loa, đợi <span class="chip">đã tải – chờ giờ</span>.</td></tr>
+            <tr><td><b>15 phút trước</b></td><td>Admin</td><td>Tab <span class="ui">Ngày thi</span>: mọi phòng phải hiện <span class="chip ok">● trực tuyến</span> và đã tải xong. Phòng nào chưa, gọi kỹ thuật viên phòng đó.</td></tr>
+            <tr><td><b>Đúng giờ</b></td><td>Tự động</td><td>Dịch vụ mở khoá cho các phòng của bài. Không cần nạp khoá, không cần USB.</td></tr>
+            <tr><td><b>Khi thí sinh sẵn sàng</b></td><td>Admin</td><td>Tích các bài cần phát cùng lúc › <span class="ui">▶ Phát các bài đã chọn</span>. Có 5 giây để <span class="ui">Huỷ lệnh phát</span> nếu bấm nhầm.</td></tr>
+            <tr><td><b>Sau thi</b></td><td>Admin</td><td>Xem <span class="ui">Nhật ký</span> (cuối tab Ngày thi) nếu cần đối chiếu: ai đăng nhập, máy nào xin khoá lúc nào, có lần xin khoá trước giờ nào không.</td></tr>
+          </tbody>
+        </table></div>
+        <div class="note err"><b>Mở khoá khẩn cấp</b> (tab Ngày thi) mở bài ngay trước giờ đã đặt. Chỉ dùng khi hội đồng thi quyết định thi sớm; việc này được ghi vào nhật ký.</div>
+      </div>
+    </section>
+
+    <!-- ===================== DỰ PHÒNG ===================== -->
+    <section class="card" id="du-phong">
+      <h2>Dự phòng khi mất Internet <span class="chip">tuỳ chọn</span></h2>
+      <div class="body">
+        <p style="margin-top:0">Trường có máy chủ chạy bản LAN (chương trình cài trên máy của trường) thì có thể chuẩn bị sẵn để vẫn thi được nếu cả trường mất Internet.</p>
+        <ol>
+          <li><b>Một lần:</b> tab <span class="ui">Cài đặt trường</span> › <span class="ui">Tạo khoá LAN dự phòng</span>. File khoá tải về máy – chép vào <b>2 USB</b>, rồi xoá khỏi thư mục Tải xuống. Dịch vụ không giữ bản nào của file này.</li>
+          <li>Từ đó, mỗi bài <b>đăng sau</b> khi tạo khoá được bọc thêm khoá LAN. Bài đăng trước đó không có trong gói dự phòng.</li>
+          <li><b>Trước mỗi kỳ thi</b>, sau khi đã xếp lịch: bấm <span class="ui">⬇ Tải gói dự phòng LAN</span>. File <code>.zip</code> chứa bài đã mã hoá, lịch, mã phòng – <b>không chứa khoá</b>.</li>
+          <li><b>Khi mất mạng:</b> trên máy chủ của trường, chép chương trình bản LAN sang một thư mục mới, giải nén gói vào đó, mở <code>MO-CHUONG-TRINH.bat</code>, kéo thả file khoá từ USB vào trang admin. Máy phòng mở địa chỉ LAN và nhập <b>đúng mã đã in</b>. Bài vẫn chỉ mở đúng giờ.</li>
+        </ol>
+        <div class="note warn">Xếp lại lịch hoặc thêm phòng sau khi tải gói thì phải tải gói mới. Đổi khoá LAN thì các bài cũ cần đăng lại mới có dự phòng – trang admin ghi chú "không có khoá LAN" ở những bài đó.</div>
+      </div>
+    </section>
+
+    <!-- ===================== BẢO MẬT ===================== -->
+    <section class="card" id="bao-mat">
+      <h2>Bảo mật tài khoản</h2>
+      <div class="body">
+        <h3 style="margin-top:0">Bật xác thực 2 lớp</h3>
+        <ol>
+          <li>Cài ứng dụng <b>Google Authenticator</b> hoặc <b>Microsoft Authenticator</b> trên điện thoại.</li>
+          <li>Trang admin › <span class="ui">Cài đặt trường</span> › <span class="ui">Bật xác thực 2 lớp</span>. Quét mã QR bằng ứng dụng (hoặc gõ khoá hiện dưới mã).</li>
+          <li>Nhập mã 6 số đang hiện trên điện thoại › <span class="ui">Xác nhận và bật</span>. Các máy khác đang đăng nhập tài khoản này bị đăng xuất.</li>
+          <li>Từ nay mỗi lần đăng nhập, sau mật khẩu sẽ có ô <span class="ui">Mã xác thực</span>. Mỗi mã chỉ dùng được một lần; bị báo "đã dùng" thì đợi mã mới (30 giây).</li>
+        </ol>
+        <h3>Bắt buộc 2 lớp cho mọi admin</h3>
+        <p>Admin đã bật 2 lớp có thể bấm <span class="ui">Bắt buộc 2 lớp cho admin</span>. Khi đó admin nào chưa bật sẽ phải bật ngay sau khi nhập mật khẩu, trước khi làm việc khác; và không ai tắt được 2 lớp. Giáo viên không bị ảnh hưởng. Sau khi bật bắt buộc, nhắc các admin còn lại đăng nhập để bật luôn – danh sách tài khoản ghi rõ <span class="chip warn">chưa bật 2 lớp</span>.</p>
+        <h3>Khi mất điện thoại</h3>
+        <p>Một admin khác bấm <span class="ui">Đặt lại mật khẩu</span> cho tài khoản đó (hoặc liên hệ VLearn nếu trường chỉ có một admin). Đặt lại mật khẩu gỡ luôn 2 lớp; người đó đăng nhập bằng mật khẩu mới rồi bật lại.</p>
+        <h3>Các lớp bảo vệ khác</h3>
+        <ul>
+          <li>Nhập sai mật khẩu 10 lần vào một tài khoản (hoặc 20 lần từ một mạng) trong 15 phút thì bị khoá 15 phút.</li>
+          <li>Phiên đăng nhập admin hết hạn sau 7 ngày, giáo viên sau 30 ngày.</li>
+          <li>Mã phòng chỉ dùng được quanh giờ thi; nhập sai mã nhiều lần từ một mạng bị chặn 10 phút (máy đã vào phòng vẫn chạy).</li>
+          <li>Mọi lần đăng nhập, xin khoá, phát, sửa lịch đều ghi vào <span class="ui">Nhật ký</span>.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ===================== SỰ CỐ ===================== -->
+    <section class="card" id="su-co">
+      <h2>Xử lý sự cố</h2>
+      <div class="body">
+        <div class="scroll"><table class="issues">
+          <thead><tr><th>Màn hình báo / hiện tượng</th><th>Cách xử lý</th></tr></thead>
+          <tbody>
+            <tr><td><b>Mã không đúng, hoặc chưa đến thời gian dùng mã</b></td><td>Kiểm tra lại mã trên phiếu (không có chữ I, O và số 0, 1). Nếu đúng mã thì có thể còn sớm hơn 24 giờ trước giờ thi, hoặc bài đã thi xong quá 3 giờ.</td></tr>
+            <tr><td><b>Nhập sai quá nhiều lần</b> (máy phòng)</td><td>Cả mạng của trường bị chặn nhập mã 10 phút. Máy đã vào phòng không bị ảnh hưởng. Đợi 10 phút rồi nhập cẩn thận.</td></tr>
+            <tr><td><b>Trình duyệt chặn tự phát</b></td><td>Bấm <span class="ui">▶ Phát thủ công</span> khi được chỉ đạo. Lần sau mở bằng shortcut toàn màn hình và bấm <span class="ui">Thử loa</span> trước giờ thi.</td></tr>
+            <tr><td><b>Lệnh phát đã quá 15 giây</b></td><td>Máy nhận lệnh muộn (thường do mạng). Bấm <span class="ui">▶ Phát thủ công</span> nếu cán bộ coi thi đồng ý.</td></tr>
+            <tr><td><b>Không kết nối được máy chủ</b></td><td>Kiểm tra mạng của máy phòng. Bài đã tải xong thì chỉ cần có mạng lại lúc đến giờ để nhận khoá. Cả trường mất mạng: dùng <a href="#du-phong">dự phòng LAN</a>.</td></tr>
+            <tr><td><b>File hỏng – đang tải lại</b></td><td>Máy tự tải lại; để yên đến khi trạng thái chuyển sang "đã tải – chờ giờ".</td></tr>
+            <tr><td><b>Phòng không hiện "trực tuyến"</b> ở tab Ngày thi</td><td>Máy phòng chưa vào, đã tắt trình duyệt, hoặc mất mạng. Gọi kỹ thuật viên phòng đó mở lại trang.</td></tr>
+            <tr><td><b>Bài báo "không mở được, cần đăng lại"</b></td><td>File lúc đăng bị lỗi. Giáo viên (hoặc admin) xoá bài và đăng lại, sau đó xếp lịch lại.</td></tr>
+            <tr><td><b>Giáo viên quên mật khẩu, bị khoá 15 phút</b></td><td>Admin bấm <span class="ui">Đặt lại mật khẩu</span>: có mật khẩu mới và mở khoá ngay.</td></tr>
+            <tr><td><b>Admin mất điện thoại 2 lớp</b></td><td>Admin khác đặt lại mật khẩu cho người đó; nếu không còn admin nào, liên hệ VLearn.</td></tr>
+            <tr><td><b>Trường đang tạm khoá – liên hệ VLearn</b></td><td>Liên hệ VLearn. Gói dịch vụ hết hạn thì <i>không</i> bị khoá: vẫn thi được các bài đã xếp lịch, chỉ không đăng được bài mới.</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- ===================== VLEARN ===================== -->
+    <section class="card" id="vlearn">
+      <h2>Dành cho VLearn <span class="chip">/_</span></h2>
+      <div class="body">
+        <p style="margin-top:0">Trang quản lý trường mở bằng mã siêu admin (chỉ giữ trong thẻ trình duyệt đang mở).</p>
+        <ul>
+          <li><b>Tạo trường:</b> mã trường (xuất hiện trên địa chỉ), tên, admin đầu tiên, gói, hạn dùng, sơ đồ dạng chữ như phần Admin. Mật khẩu admin chỉ hiện một lần – gửi trường qua kênh riêng.</li>
+          <li><b>Sửa trường:</b> tên, gói, hạn dùng, sơ đồ, bắt buộc 2 lớp cho admin, tạm khoá.</li>
+          <li><b>Cấp mật khẩu mới</b> cho admin trường: đăng xuất người đó khỏi mọi máy và gỡ 2 lớp. Nhập tên đăng nhập mới để tạo thêm admin.</li>
+          <li><b>Hết hạn</b> chỉ chặn đăng bài mới. <b>Tạm khoá</b> chặn cả trường, kể cả máy phòng – không dùng trong mùa thi.</li>
+        </ul>
+      </div>
+    </section>
+
+    <p class="foot">Phát bài nghe có khoá theo giờ · VLearn Education</p>
+  </div>
+</div>
+
+<script>
+// Điền mã trường (?t=lvc) và địa chỉ thật vào các ví dụ; tô mục lục theo phần đang đọc.
+(() => {
+  const slug = (new URLSearchParams(location.search).get('t') || '').toLowerCase();
+  if (/^[a-z0-9-]{2,30}$/.test(slug)) {
+    document.querySelectorAll('[data-slug]').forEach(e => e.textContent = slug);
+    const back = document.getElementById('backLink'); back.href = '/' + slug + '/'; back.textContent = 'Về trang của trường ' + slug;
+  }
+  document.querySelectorAll('[data-origin]').forEach(e => e.textContent = location.origin);
+  const links = [...document.querySelectorAll('.toc a, .pills a')];
+  const mark = id => links.forEach(a => {
+    const on = a.getAttribute('href') === '#' + id; a.classList.toggle('on', on);
+    if (on && a.parentNode.classList.contains('pills')) a.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  });
+  if ('IntersectionObserver' in window) {
+    const io = new IntersectionObserver(es => { const v = es.filter(e => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0]; if (v) mark(v.target.id); }, { rootMargin: '-20% 0px -70% 0px' });
+    document.querySelectorAll('section.card').forEach(s => io.observe(s));
+  }
+  mark(location.hash.slice(1) || 'tong-quan');
+})();
+</script>
+</body></html>

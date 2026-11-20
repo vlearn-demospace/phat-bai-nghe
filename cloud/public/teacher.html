@@ -11,7 +11,8 @@
 main{max-width:820px}
 </style></head><body>
 
-<header><div class="brand"><img src="/vlearn-logo.png" alt="VLearn"><div><div class="eyebrow" id="school">Phát bài nghe</div><h1>Đăng bài nghe</h1></div></div><span id="who" class="chip navy hidden"></span></header>
+<header><div class="brand"><img src="/vlearn-logo.png" alt="VLearn"><div><div class="eyebrow" id="school">Phát bài nghe</div><h1>Đăng bài nghe</h1></div></div><div class="chips"><a class="chip" id="helpLink" href="/huong-dan#giao-vien" target="_blank" rel="noopener">Hướng dẫn</a><span id="who" class="chip navy hidden"></span></div></header>
+<script>document.getElementById('helpLink').href = '/huong-dan?t=' + encodeURIComponent(location.pathname.split('/')[1]) + '#giao-vien';</script>
 
 <main id="loginView" class="hidden">
   <div class="card" style="width:100%;max-width:420px;margin:40px auto 0">

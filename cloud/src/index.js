@@ -8,7 +8,7 @@ const ADMIN_SESSION_MS = 7 * 86400000;      // admin: phiên ngắn hơn
 const FAIL_IP = 20, FAIL_USER = 10, FAIL_WINDOW = 15 * 60000;   // đăng nhập sai: theo IP / theo tài khoản
 const PART = 8 * 1048576;                  // R2 multipart: mọi phần (trừ phần cuối) cùng cỡ, tối thiểu 5 MiB
 const MAX_FILE = 500 * 1048576;
-const RESERVED = new Set(['api', 'a', 'g', 'static', 'admin', 'www']);
+const RESERVED = new Set(['api', 'a', 'g', 'static', 'admin', 'www', 'huong-dan']);
 
 const page = (env, req, file) => env.ASSETS.fetch(new Request(new URL('/' + file, req.url), req))
   .then(r => new Response(r.body, { status: r.status, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } }));
@@ -25,6 +25,7 @@ export default {
     try {
       if (!parts.length) return page(env, req, 'index.html');
       if (parts.length === 1 && parts[0] === '_') return page(env, req, 'super.html');   // trang siêu admin VLearn
+      if (parts.length === 1 && parts[0] === 'huong-dan') return page(env, req, 'huong-dan.html');
       if (parts.length === 1 && /^[\w.-]+\.(css|js|png|txt|ico)$/.test(parts[0])) return env.ASSETS.fetch(req);   // vlearn.css, logo, robots.txt
       if (req.method === 'POST' && !sameOrigin(req)) return json(403, { error: 'Yêu cầu không hợp lệ' });
       if (parts[0] === 'api') return await superApi(req, env, parts.slice(1));

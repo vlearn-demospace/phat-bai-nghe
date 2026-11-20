@@ -13,7 +13,8 @@ src/truong.js       Durable Object "Truong" (1 đối tượng / trường): đ�
 src/lib.js          mật khẩu PBKDF2, khoá trường (bọc bằng MASTER_KEY), sơ đồ và chia đợt
 migrations/         lược đồ D1
 public/             trang admin (/<trường>/a), giáo viên (/<trường>/g), máy phòng (/<trường>/ hoặc /<trường>/K7M2),
-                    trang chọn trường (/), trang siêu admin VLearn (/_), ban-do.js (sơ đồ dạng chữ), vlearn.css, logo
+                    trang chọn trường (/), trang siêu admin VLearn (/_), hướng dẫn sử dụng (/huong-dan, ?t=<trường>
+                    để điền sẵn địa chỉ của trường), ban-do.js (sơ đồ dạng chữ), vlearn.css, logo
 test/               kiểm thử tự động chạy bằng wrangler dev --local (giả lập, không cần tài khoản);
                     lan.test.mjs chạy gói dự phòng bằng chính ../server.js; smoke-remote.mjs chạy trên bản đã triển khai
 ```

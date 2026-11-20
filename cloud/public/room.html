@@ -33,6 +33,8 @@ audio{width:100%;margin-top:18px}
   <input id="inCode" maxlength="8" autocomplete="off" spellcheck="false" placeholder="MÃ PHÒNG">
   <button id="btnLogin" class="b-primary big-btn">Vào phòng</button>
   <div class="msg err" id="loginMsg"></div>
+  <p class="muted" style="margin-top:14px;font-size:13px"><a id="helpLink" href="/huong-dan#ky-thuat-vien" target="_blank" rel="noopener">Hướng dẫn cho kỹ thuật viên</a></p>
+  <script>document.getElementById('helpLink').href = '/huong-dan?t=' + encodeURIComponent(location.pathname.split('/')[1]) + '#ky-thuat-vien';</script>
 </div>
 
 <div class="card hidden" id="main">

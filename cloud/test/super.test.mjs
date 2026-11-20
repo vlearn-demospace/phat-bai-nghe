@@ -85,7 +85,7 @@ test('admin sửa sơ đồ: phòng đang có lịch thi không xoá được, p
 
 test('mã JavaScript của mọi trang dịch được (không lỗi cú pháp)', async () => {
   for (const js of ['/ban-do.js', '/qrcode.js']) { const r = await fetch(base + js); assert.equal(r.status, 200, js); new Script(await r.text()); }
-  for (const p of ['/', '/_', '/sa/a', '/sa/g', '/sa/']) {
+  for (const p of ['/', '/_', '/huong-dan', '/sa/a', '/sa/g', '/sa/']) {
     const html = await (await fetch(base + p)).text(), scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]);
     assert.ok(scripts.length, p);
     for (const s of scripts) assert.doesNotThrow(() => new Script(s), p);

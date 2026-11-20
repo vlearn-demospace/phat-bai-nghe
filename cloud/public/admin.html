@@ -13,7 +13,7 @@ header .chips{margin-left:auto}
 
 <header>
   <div class="brand"><img src="/vlearn-logo.png" alt="VLearn"><div><div class="eyebrow">Phát bài nghe · Admin trường</div><h1 id="schoolName">Phát bài nghe</h1></div></div>
-  <div class="chips"><span class="chip" id="chExam">Bài: –</span><span class="chip ok" id="chKey">Mở khoá tự động</span></div>
+  <div class="chips"><a class="chip" id="helpLink" href="/huong-dan#admin" target="_blank" rel="noopener">Hướng dẫn</a><span class="chip" id="chExam">Bài: –</span><span class="chip ok" id="chKey">Mở khoá tự động</span></div>
 </header>
 
 <div id="lostConn" class="hidden note err" style="margin:0;border-radius:0;font-weight:600;padding:12px clamp(16px,3vw,44px)">⚠ Mất kết nối với máy chủ – kiểm tra mạng Internet. Trang sẽ tự kết nối lại.</div>
@@ -95,6 +95,13 @@ header .chips{margin-left:auto}
   </div>
   <div id="noSched" class="note info hidden">Chưa có bài nào được xếp lịch.</div>
   <div id="liveCards"></div>
+  <div class="card">
+    <h2>Nhật ký</h2>
+    <p class="mute small">Ai đăng nhập, đăng bài, xếp lịch; máy phòng nào vào phòng, xin khoá, phát – kể cả lần xin khoá trước giờ. 500 dòng gần nhất.</p>
+    <button class="b-light" id="btnLog">Xem nhật ký</button>
+    <input type="text" id="logFilter" class="hidden" placeholder="Lọc theo chữ, vd. P101, TRƯỚC GIỜ, tên giáo viên" style="margin-top:10px">
+    <div class="scroll hidden" id="logBox" style="max-height:480px;overflow-y:auto;margin-top:10px"><table><thead><tr><th>Lúc</th><th>Việc</th></tr></thead><tbody id="logRows"></tbody></table></div>
+  </div>
 </section>
 
 <!-- ========== GIÁO VIÊN ========== -->
@@ -212,6 +219,7 @@ header .chips{margin-left:auto}
 <script>
 const $ = id => document.getElementById(id);
 const BASE = '/' + location.pathname.split('/')[1];   // /<trường>
+document.getElementById('helpLink').href = '/huong-dan?t=' + encodeURIComponent(BASE.slice(1)) + '#admin';
 let S = null, tab = sessionStorage.getItem('tab') || 't1', lastKey = null, schedId = null, codesId = null, assign = {}, brush = '';
 const picks = new Set();
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -376,6 +384,19 @@ async function makeSchoolKey() {
 $('btnSchool').onclick = makeSchoolKey;
 $('btnSchoolNew').onclick = () => { if (confirm('Gỡ khoá LAN? Bài đăng sau đó sẽ không có bản dự phòng LAN.')) act('lan-key', {}); };
 $('btnKeyAgain').onclick = () => lastKey && downloadKey(lastKey);
+
+// ---------- Nhật ký ----------
+let logData = [];
+function drawLog() {
+  const q = $('logFilter').value.trim().toLowerCase(), rows = q ? logData.filter(r => r.msg.toLowerCase().includes(q)) : logData;
+  $('logRows').innerHTML = rows.map(r => `<tr><td class="small" style="white-space:nowrap">${esc(new Date(r.at).toLocaleString('vi-VN'))}</td><td>${/TRƯỚC GIỜ|SAI|KHÔNG MỞ|TẮT|NGOÀI/.test(r.msg) ? '<span class="chip warn">Chú ý</span> ' : ''}${esc(r.msg)}</td></tr>`).join('')
+    || '<tr><td colspan="2" class="mute">Không có dòng nào khớp.</td></tr>';
+}
+$('btnLog').onclick = async () => {
+  try { logData = await api('log'); show('logFilter', true); show('logBox', true); $('btnLog').textContent = 'Tải lại nhật ký'; drawLog(); }
+  catch (e) { alert(e.code ? e.message : 'Mất kết nối với máy chủ.'); }
+};
+$('logFilter').oninput = drawLog;
 
 // ---------- Xác thực 2 lớp ----------
 let tfaBusy = false, forced = false;
