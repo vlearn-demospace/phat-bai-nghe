@@ -13,8 +13,9 @@ src/truong.js       Durable Object "Truong" (1 đối tượng / trường): đ�
 src/lib.js          mật khẩu PBKDF2, khoá trường (bọc bằng MASTER_KEY), sơ đồ và chia đợt
 migrations/         lược đồ D1
 public/             trang admin (/<trường>/a), giáo viên (/<trường>/g), máy phòng (/<trường>/ hoặc /<trường>/K7M2),
-                    trang chọn trường (/), vlearn.css (hệ thiết kế VLearn), logo
-test/               kiểm thử tự động chạy bằng wrangler dev --local (giả lập, không cần tài khoản)
+                    trang chọn trường (/), trang siêu admin VLearn (/_), ban-do.js (sơ đồ dạng chữ), vlearn.css, logo
+test/               kiểm thử tự động chạy bằng wrangler dev --local (giả lập, không cần tài khoản);
+                    lan.test.mjs chạy gói dự phòng bằng chính ../server.js; smoke-remote.mjs chạy trên bản đã triển khai
 ```
 
 ## Chạy trên máy
@@ -78,7 +79,27 @@ phát đồng loạt, phòng sát vách sang đợt 2, WebSocket nhận lệnh �
 
 Gói Workers Free đủ để thử (giới hạn 10 ms CPU/yêu cầu có thể làm chậm đăng nhập, đăng bài lớn). Chạy thật nên dùng gói Paid ($5/tháng).
 
-## Chưa làm trong MVP
-- Trang siêu admin (hiện tạo trường bằng API), công cụ vẽ sơ đồ phòng, gói cước/thanh toán.
-- Tải "gói dự phòng" để chạy bằng bản LAN (khoá LAN đã có, bài đã được bọc thêm khoá LAN).
+## Quản lý trường (siêu admin)
+Mở `/_`, nhập SUPER_TOKEN (chỉ giữ trong tab). Xem các trường (số bài, dung lượng, số giáo viên, hoạt động gần nhất),
+tạo trường, sửa tên / gói / hạn dùng / tạm khoá / sơ đồ, cấp lại mật khẩu admin trường.
+Hết hạn dùng: trường vẫn xem và thi các bài đã xếp lịch, chỉ không đăng được bài mới. Tạm khoá: chặn cả trường – không dùng giữa buổi thi.
+
+## Sơ đồ phòng
+Admin trường tự sửa ở tab "Cài đặt trường". Dạng chữ, mỗi khu một dòng `# Tên khu`, mỗi tầng một dòng:
+```
+# KHU 20 PHÒNG (DÃY TRƯỚC SẢNH)
+Tầng 4 [PHÒNG ĐỢI]: 409 12 SINH; 408 12 HOÁ; |; 407 12 LÝ
+```
+`|` là cầu thang (hai phòng hai bên không tính là sát vách khi chia đợt phát). Không xoá được phòng còn lịch thi.
+
+## Gói dự phòng LAN
+Admin tạo khoá LAN (tab "Cài đặt trường", file khoá cất USB) → bài đăng sau đó được bọc thêm khoá LAN →
+sau khi xếp lịch, bấm "Tải gói dự phòng LAN": file .zip (đóng ngay trong trình duyệt) gồm `data/` đúng dạng của `server.js`
+(bài đã mã hoá, lịch, mã phòng, kỹ thuật viên) và `DOC-TRUOC.txt`. Mất Internet: giải nén vào một bản sao MỚI của bản LAN,
+chạy MO-CHUONG-TRINH.bat, nạp file khoá LAN, máy phòng nhập đúng mã đã in. Gói không chứa khoá.
+Giới hạn: bản LAN chia đợt theo sơ đồ cài sẵn trong `server.js` (sơ đồ LVC); trường khác vẫn thi được nhưng không tự chia đợt.
+
+## Chưa làm
+- Thu tiền (gói cước đã có trường `goi`, `het_han`; siêu admin gia hạn bằng tay).
+- Bản LAN đọc `data/ban-do.json` trong gói (để trường khác cũng chia đợt khi chạy dự phòng).
 - Xác thực 2 lớp cho admin, luật Rate Limiting của Cloudflare, mã phòng chỉ hiệu lực quanh giờ thi.
