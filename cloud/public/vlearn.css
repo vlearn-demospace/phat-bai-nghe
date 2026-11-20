@@ -72,7 +72,9 @@ nav button.on, nav button.on:hover { background: rgb(var(--navy)); border-color:
 label { display: block; font-size: 13px; font-weight: 600; color: rgb(var(--navy-text)); margin: 14px 0 6px; }
 input[type=text], input[type=date], input[type=time], input[type=number], input[type=password], select {
   height: 44px; padding: 0 14px; border: 1px solid rgb(var(--mist)); border-radius: 10px; width: 100%; background: rgb(var(--white)); color: rgb(var(--ink)); font-size: 14px; outline: none; }
-input:focus, select:focus { border-color: rgb(var(--navy-text)); box-shadow: var(--shadow-focus); }
+textarea { padding: 10px 14px; border: 1px solid rgb(var(--mist)); border-radius: 10px; width: 100%; background: rgb(var(--white)); color: rgb(var(--ink)); font-size: 14px; outline: none; resize: vertical; line-height: 1.5; }
+input:focus, select:focus, textarea:focus { border-color: rgb(var(--navy-text)); box-shadow: var(--shadow-focus); }
+code { font-family: Consolas, "Cascadia Mono", monospace; font-size: .92em; background: rgb(var(--page)); padding: 1px 5px; border-radius: 5px; }
 
 /* ---------- Nút: mặc định viền; .b-primary cam (một nút chính mỗi màn); .b-dark navy; .b-red nguy hiểm ---------- */
 button { height: 40px; padding: 0 16px; margin: 6px 8px 0 0; border-radius: 9px; border: 1px solid rgb(var(--mist)); background: rgb(var(--white)); color: rgb(var(--navy-text)); font-size: 14px; font-weight: 700; cursor: pointer; transition: background .15s, border-color .15s, color .15s; }

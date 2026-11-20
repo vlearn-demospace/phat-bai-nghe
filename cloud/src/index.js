@@ -1,6 +1,6 @@
 // Worker "phat-bai-nghe": trang tĩnh + API cho nhiều trường.
 // Đường dẫn: /<trường>/a (admin) · /<trường>/g (giáo viên) · /<trường>/ hoặc /<trường>/K7M2 (máy phòng)
-import { json, same, hashPw, randHex, genCode, norm, CODE_LEN, sha256, hex, newSchoolKeys, keyIdOf, checkPublicKeyPem, roomIds, log } from './lib.js';
+import { json, same, hashPw, randHex, genCode, norm, CODE_LEN, sha256, hex, newSchoolKeys, keyIdOf, checkPublicKeyPem, roomIds, cleanMap, log } from './lib.js';
 export { Truong } from './truong.js';
 
 const SESSION_MS = 30 * 86400000;
@@ -22,7 +22,8 @@ export default {
     const ip = req.headers.get('cf-connecting-ip') || '127.0.0.1';
     try {
       if (!parts.length) return page(env, req, 'index.html');
-      if (parts.length === 1 && /^[\w.-]+\.(css|png|txt|ico)$/.test(parts[0])) return env.ASSETS.fetch(req);   // vlearn.css, logo, robots.txt
+      if (parts.length === 1 && parts[0] === '_') return page(env, req, 'super.html');   // trang siêu admin VLearn
+      if (parts.length === 1 && /^[\w.-]+\.(css|js|png|txt|ico)$/.test(parts[0])) return env.ASSETS.fetch(req);   // vlearn.css, logo, robots.txt
       if (req.method === 'POST' && !sameOrigin(req)) return json(403, { error: 'Yêu cầu không hợp lệ' });
       if (parts[0] === 'api') return await superApi(req, env, parts.slice(1));
 
@@ -46,20 +47,67 @@ export default {
 // ---------- Siêu admin (VLearn): tạo trường bằng SUPER_TOKEN ----------
 async function superApi(req, env, p) {
   if (!env.SUPER_TOKEN || !same(req.headers.get('authorization') || '', 'Bearer ' + env.SUPER_TOKEN)) return json(403, { error: 'Không có quyền' });
-  if (p[0] === 'truong' && req.method === 'GET')
-    return json(200, (await env.DB.prepare('SELECT id, slug, ten, goi, het_han, khoa, created_at FROM truong ORDER BY created_at').all()).results);
+  const DB = env.DB;
+  if (p[0] === 'truong' && p.length === 1 && req.method === 'GET')
+    return json(200, (await DB.prepare(`SELECT t.id, t.slug, t.ten, t.goi, t.het_han, t.khoa, t.created_at,
+        (SELECT COUNT(*) FROM bai b WHERE b.truong_id = t.id) AS so_bai, (SELECT COALESCE(SUM(size), 0) FROM bai b WHERE b.truong_id = t.id) AS dung_luong,
+        (SELECT COUNT(*) FROM users u WHERE u.truong_id = t.id AND u.role = 'teacher') AS so_gv, (SELECT MAX(at) FROM nhat_ky n WHERE n.truong_id = t.id) AS hoat_dong
+      FROM truong t ORDER BY t.created_at`).all()).results);
+  if (p[0] === 'truong' && p.length >= 2) {
+    const t = await DB.prepare('SELECT * FROM truong WHERE slug = ?').bind(String(p[1]).toLowerCase()).first();
+    if (!t) return json(404, { error: 'Không có trường này' });
+    if (p.length === 2 && req.method === 'GET') {
+      const admins = (await DB.prepare("SELECT name, username FROM users WHERE truong_id = ? AND role = 'admin' ORDER BY created_at").bind(t.id).all()).results;
+      return json(200, { slug: t.slug, ten: t.ten, goi: t.goi, het_han: t.het_han, khoa: t.khoa, ban_do: JSON.parse(t.ban_do), lan_key: !!t.lan_public_key, admins });
+    }
+    if (req.method !== 'POST') return json(404, { error: 'Không tìm thấy' });
+    const b = await body(req);
+    if (p.length === 2) {   // sửa tên, gói, hạn dùng, tạm khoá, sơ đồ
+      const set = {}, msg = [];
+      if (b.ten !== undefined) { set.ten = String(b.ten).trim().slice(0, 120); if (!set.ten) return json(400, { error: 'Chưa nhập tên trường' }); msg.push('tên'); }
+      if (b.goi !== undefined) { set.goi = String(b.goi).trim().slice(0, 30) || 'thu'; msg.push('gói ' + set.goi); }
+      if (b.het_han !== undefined) { set.het_han = b.het_han ? +b.het_han : null; if (set.het_han !== null && !(set.het_han > 0)) return json(400, { error: 'Hạn dùng không hợp lệ' }); msg.push('hạn dùng'); }
+      if (b.khoa !== undefined) { set.khoa = b.khoa ? 1 : 0; msg.push(set.khoa ? 'TẠM KHOÁ' : 'mở khoá'); }
+      if (b.ban_do !== undefined) {
+        const m = cleanMap(b.ban_do); if (m.error) return json(400, { error: m.error });
+        const e = await busyRooms(env, t, m.map); if (e) return json(400, { error: e });
+        set.ban_do = JSON.stringify(m.map); msg.push('sơ đồ');
+      }
+      const keys = Object.keys(set);
+      if (!keys.length) return json(400, { error: 'Không có gì để sửa' });
+      await DB.prepare(`UPDATE truong SET ${keys.map(k => k + ' = ?').join(', ')} WHERE id = ?`).bind(...keys.map(k => set[k]), t.id).run();
+      await log(env, t.id, `VLearn sửa: ${msg.join(', ')}`);
+      return json(200, {});
+    }
+    if (p[2] === 'reset-admin') {   // cấp lại mật khẩu admin trường (hoặc tạo admin mới nếu chưa có tên đăng nhập này)
+      const username = String(b.username || '').trim().toLowerCase();
+      if (!/^[a-z0-9._-]{3,30}$/.test(username)) return json(400, { error: 'Tên đăng nhập 3–30 ký tự, không dấu' });
+      const u = await DB.prepare('SELECT * FROM users WHERE truong_id = ? AND username = ?').bind(t.id, username).first();
+      if (u && u.role !== 'admin') return json(400, { error: 'Tài khoản này là giáo viên, không phải admin' });
+      const password = genPassword(), salt = randHex(16), hash = await hashPw(password, salt);
+      if (u) await DB.batch([DB.prepare('UPDATE users SET salt = ?, hash = ? WHERE id = ?').bind(salt, hash, u.id), DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(u.id)]);
+      else {
+        const name = String(b.name || '').trim().slice(0, 80) || 'Admin';
+        await DB.prepare('INSERT INTO users (id, truong_id, name, username, role, salt, hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').bind(randHex(6), t.id, name, username, 'admin', salt, hash, Date.now()).run();
+      }
+      await log(env, t.id, `VLearn ${u ? 'cấp lại mật khẩu' : 'tạo'} admin ${username}`);
+      return json(200, { username, password });
+    }
+    return json(404, { error: 'Không tìm thấy' });
+  }
   if (p[0] === 'truong' && req.method === 'POST') {
     const b = await body(req), slug = String(b.slug || '').toLowerCase(), ten = String(b.ten || '').trim().slice(0, 120);
     if (!/^[a-z0-9-]{2,30}$/.test(slug) || RESERVED.has(slug)) return json(400, { error: 'Mã trường 2–30 ký tự a-z, 0-9, -' });
     if (!ten) return json(400, { error: 'Chưa nhập tên trường' });
-    if (!Array.isArray(b.ban_do) || !roomIds(b.ban_do).size) return json(400, { error: 'Sơ đồ phòng không hợp lệ' });
+    const m = cleanMap(b.ban_do);
+    if (m.error) return json(400, { error: 'Sơ đồ phòng: ' + m.error });
     const admin = b.admin || {}, username = String(admin.username || '').trim().toLowerCase(), name = String(admin.name || '').trim().slice(0, 80);
     if (!name || !/^[a-z0-9._-]{3,30}$/.test(username)) return json(400, { error: 'Thiếu họ tên / tên đăng nhập admin trường' });
     if (await env.DB.prepare('SELECT 1 FROM truong WHERE slug = ?').bind(slug).first()) return json(400, { error: 'Mã trường đã có' });
     const keys = await newSchoolKeys(env), id = randHex(6), password = genPassword(), salt = randHex(16);
     await env.DB.batch([
       env.DB.prepare('INSERT INTO truong (id, slug, ten, ban_do, public_key, wrapped_private, goi, het_han, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
-        .bind(id, slug, ten, JSON.stringify(b.ban_do), keys.publicKey, keys.wrappedPrivate, String(b.goi || 'thu'), b.het_han ? +b.het_han : null, Date.now()),
+        .bind(id, slug, ten, JSON.stringify(m.map), keys.publicKey, keys.wrappedPrivate, String(b.goi || 'thu'), b.het_han ? +b.het_han : null, Date.now()),
       env.DB.prepare('INSERT INTO users (id, truong_id, name, username, role, salt, hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
         .bind(randHex(6), id, name, username, 'admin', salt, await hashPw(password, salt), Date.now()),
     ]);
@@ -214,6 +262,14 @@ async function teacherApi(req, env, t, user, a, post) {
   return json(404, { error: 'Không tìm thấy' });
 }
 
+// Không cho bỏ khỏi sơ đồ một phòng còn đang có lịch thi (bài chưa thi xong)
+async function busyRooms(env, t, map) {
+  const keep = roomIds(map), now = Date.now();
+  const rows = (await env.DB.prepare('SELECT b.title, b.t0, b.dur, p.room FROM phong p JOIN bai b ON b.id = p.bai_id WHERE p.truong_id = ? AND b.t0 IS NOT NULL').bind(t.id).all()).results;
+  const gone = rows.filter(r => !keep.has(r.room) && r.t0 + (r.dur || 3600) * 1000 > now);
+  return gone.length ? `Phòng ${[...new Set(gone.map(r => 'P.' + r.room.slice(1)))].join(', ')} đang có lịch thi ("${gone[0].title}") – bỏ phòng khỏi lịch thi trước khi xoá khỏi sơ đồ` : null;
+}
+
 async function deleteExam(env, t, e) {
   await env.DB.batch([env.DB.prepare('DELETE FROM phong WHERE bai_id = ?').bind(e.id), env.DB.prepare('DELETE FROM bai WHERE id = ?').bind(e.id)]);
   await env.R2.delete(r2Key(t.id, e.id));
@@ -317,6 +373,13 @@ async function adminApi(req, env, t, user, a, post, stub) {
     if (!k) return json(404, { error: 'Không tìm thấy kỹ thuật viên' });
     await DB.batch([DB.prepare('DELETE FROM ktv WHERE id = ?').bind(k.id), DB.prepare('UPDATE phong SET ktv_id = NULL WHERE ktv_id = ? AND truong_id = ?').bind(k.id, t.id)]);
     await log(env, t.id, `${who}: xoá kỹ thuật viên ${k.name} (các phòng của người này thành chưa phân)`);
+    return json(200, {});
+  }
+  if (a === 'ban-do') {
+    const m = cleanMap(b.ban_do); if (m.error) return json(400, { error: m.error });
+    const e = await busyRooms(env, t, m.map); if (e) return json(400, { error: e });
+    await DB.prepare('UPDATE truong SET ban_do = ? WHERE id = ?').bind(JSON.stringify(m.map), t.id).run();
+    await log(env, t.id, `${who}: sửa sơ đồ phòng (${roomIds(m.map).size} phòng)`);
     return json(200, {});
   }
   if (a === 'lan-key') {   // khoá LAN dự phòng: chỉ nhận khoá công khai, khoá riêng trường tự giữ trên USB

@@ -56,6 +56,32 @@ export function checkPublicKeyPem(pem) { try { return fromPem(pem).length > 200;
 
 // ---------- Sơ đồ trường và chia đợt phát ----------
 // ban_do: [{ title, floors: [{ n, rooms: [['101','10 ANH'], null, ...] }] }] – null = cầu thang, ngắt dãy phòng.
+// Kiểm tra và làm sạch sơ đồ gửi lên. Trả về { map } hoặc { error }.
+export function cleanMap(map) {
+  if (!Array.isArray(map) || !map.length || map.length > 20) return { error: 'Sơ đồ cần 1–20 khu' };
+  const seen = new Set(), out = [];
+  for (const z of map) {
+    if (!z || !Array.isArray(z.floors) || !z.floors.length || z.floors.length > 30) return { error: 'Mỗi khu cần 1–30 tầng' };
+    const zone = { title: String(z.title || '').trim().slice(0, 80) || 'KHU', floors: [] };
+    for (const f of z.floors) {
+      if (!f || !Array.isArray(f.rooms) || f.rooms.length > 40) return { error: 'Mỗi tầng tối đa 40 ô' };
+      const floor = { n: String(f.n ?? '').trim().slice(0, 10), rooms: [] };
+      if (f.wait) floor.wait = String(f.wait).trim().slice(0, 40);
+      for (const r of f.rooms) {
+        if (r === null) { floor.rooms.push(null); continue; }
+        const id = String(Array.isArray(r) ? r[0] : '').trim(), label = String(Array.isArray(r) ? r[1] ?? '' : '').trim().slice(0, 40);
+        if (!/^[A-Za-z0-9-]{1,10}$/.test(id)) return { error: `Số phòng "${id}" không hợp lệ (chỉ chữ, số, dấu -, tối đa 10 ký tự)` };
+        if (seen.has(id)) return { error: `Phòng ${id} bị lặp trên sơ đồ` };
+        seen.add(id); floor.rooms.push([id, label]);
+      }
+      zone.floors.push(floor);
+    }
+    out.push(zone);
+  }
+  if (!seen.size) return { error: 'Sơ đồ chưa có phòng nào' };
+  if (seen.size > 300) return { error: 'Sơ đồ tối đa 300 phòng' };
+  return { map: out };
+}
 export const roomIds = map => new Set(map.flatMap(k => k.floors.flatMap(f => f.rooms.filter(Boolean).map(r => 'P' + r[0]))));
 export function splitWaves(map, rooms) {
   const wave2 = new Set();

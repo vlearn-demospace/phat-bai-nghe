@@ -33,7 +33,7 @@ header .chips{margin-left:auto}
   <button data-t="t1">Bài nghe</button>
   <button data-t="t2">Ngày thi</button>
   <button data-t="t3">Giáo viên &amp; KTV</button>
-  <button data-t="t4">Địa chỉ &amp; dự phòng</button>
+  <button data-t="t4">Cài đặt trường</button>
 </nav>
 
 <main id="app" class="hidden">
@@ -135,6 +135,16 @@ header .chips{margin-left:auto}
     <div class="mute small" id="planInfo" style="margin-top:14px"></div>
     <button class="b-ghost" id="btnOut">Đăng xuất</button>
   </div>
+  <div class="card">
+    <h2>Sơ đồ phòng</h2>
+    <p class="mute small">Dùng để chọn phòng khi xếp lịch và tách phòng sát vách sang đợt 2. Mỗi khu bắt đầu bằng dòng <code># Tên khu</code>; mỗi tầng một dòng <code>Tầng 2 [PHÒNG ĐỢI]: 201 10A1; 202 10A2; |; 203 10A3</code>. Các ô cách nhau bằng dấu <code>;</code>, <code>|</code> là cầu thang (hai phòng hai bên cầu thang không tính là sát vách). Phần <code>[...]</code> không bắt buộc.</p>
+    <textarea id="mapText" rows="12" spellcheck="false" style="width:100%;font-family:ui-monospace,Consolas,monospace;font-size:13px"></textarea>
+    <div id="mapMsg" class="note hidden"></div>
+    <button class="b-light" id="btnMapView">Xem trước</button>
+    <button class="b-dark" id="btnMapSave">Lưu sơ đồ</button>
+    <button class="b-ghost" id="btnMapReset">Bỏ thay đổi</button>
+    <div id="mapPreview" style="margin-top:12px"></div>
+  </div>
   <div class="card hidden" id="schoolNo">
     <h2>Khoá LAN dự phòng (tuỳ chọn)</h2>
     <p class="mute">Dịch vụ tự mở khoá đúng giờ, không cần khoá này. Tạo khoá LAN nếu muốn dự phòng khi mất Internet: từ đó mỗi bài đăng mới được bọc thêm bằng khoá LAN, mở được bằng chương trình chạy trên máy trường (bản LAN). Dịch vụ chỉ lưu phần công khai; phần bí mật tải về thành <b>file khoá</b>, cất vào USB.</p>
@@ -161,6 +171,7 @@ header .chips{margin-left:auto}
 </section>
 </main>
 
+<script src="/ban-do.js"></script>
 <script>
 const $ = id => document.getElementById(id);
 const BASE = '/' + location.pathname.split('/')[1];   // /<trường>
@@ -208,6 +219,7 @@ function render() {
   // chips
   $('chExam').textContent = `Bài: ${ex.length} · đã xếp lịch: ${sch.length}`; $('chExam').className = 'chip ' + (ex.length ? 'ok' : '');
   $('schoolName').textContent = S.school.ten; document.title = 'Admin – ' + S.school.ten; $('gHint').textContent = baseUrl() + '/g';
+  fillMap();
 
   // ----- Bài nghe
   show('noExam', !ex.length); show('examTbl', !!ex.length);
@@ -316,6 +328,21 @@ $('btnSchool').onclick = makeSchoolKey;
 $('btnSchoolNew').onclick = () => { if (confirm('Gỡ khoá LAN? Bài đăng sau đó sẽ không có bản dự phòng LAN.')) act('lan-key', {}); };
 $('btnKeyAgain').onclick = () => lastKey && downloadKey(lastKey);
 
+// ---------- Sơ đồ phòng ----------
+const mapNote = (text, kind = '') => { const el = $('mapMsg'); el.className = 'note ' + kind; el.textContent = text; show('mapMsg', !!text); };
+function fillMap(force) { const t = $('mapText'); if (S && (force || !t.dataset.dirty)) { t.value = BanDo.format(S.map); delete t.dataset.dirty; } }
+$('mapText').oninput = () => { $('mapText').dataset.dirty = '1'; };
+$('btnMapReset').onclick = () => { fillMap(true); mapNote(''); $('mapPreview').innerHTML = ''; };
+$('btnMapView').onclick = () => {
+  try { const m = BanDo.parse($('mapText').value); $('mapPreview').innerHTML = BanDo.html(m); mapNote(`${m.reduce((n, z) => n + z.floors.reduce((k, f) => k + f.rooms.filter(Boolean).length, 0), 0)} phòng.`, 'ok'); }
+  catch (e) { mapNote(e.message, 'err'); }
+};
+$('btnMapSave').onclick = async () => {
+  let m; try { m = BanDo.parse($('mapText').value); } catch (e) { return mapNote(e.message, 'err'); }
+  try { await api('ban-do', { ban_do: m }); delete $('mapText').dataset.dirty; await refresh(); fillMap(true); $('mapPreview').innerHTML = ''; mapNote('Đã lưu sơ đồ.', 'ok'); }
+  catch (e) { mapNote(e.code ? e.message : 'Mất kết nối với máy chủ.', 'err'); }
+};
+
 // ---------- Gói dự phòng LAN: đóng .zip ngay trong trình duyệt (không nén, file đã mã hoá) ----------
 const CRC = new Uint32Array(256).map((_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; return c; });
 function crc32(u8) { let c = ~0; for (let i = 0; i < u8.length; i++) c = CRC[(c ^ u8[i]) & 255] ^ (c >>> 8); return ~c >>> 0; }
@@ -358,15 +385,14 @@ $('btnPack').onclick = async () => {
     files.push({ name: 'DOC-TRUOC.txt', data: te.encode([
       'GÓI DỰ PHÒNG LAN – PHÁT BÀI NGHE', `Trường: ${S.school.ten} · tạo lúc ${new Date().toLocaleString('vi-VN')}`, '',
       'Chỉ dùng khi dịch vụ trực tuyến không truy cập được.',
-      '1. Trên máy chủ của trường (máy có bản LAN), chép thư mục chương trình sang một thư mục MỚI (vd. D:\phat-bai-nghe-du-phong),',
+      '1. Trên máy chủ của trường (máy có bản LAN), chép thư mục chương trình sang một thư mục MỚI (vd. D:\\phat-bai-nghe-du-phong),',
       '   rồi giải nén gói này vào thư mục đó (ghi đè thư mục data). KHÔNG giải nén đè lên bản LAN đang dùng thật.',
       '2. Bấm đúp MO-CHUONG-TRINH.bat. Trang admin mở ra trên máy chủ.',
       '3. Ngày thi: kéo thả file KHOA-LAN-phat-bai-nghe.txt từ USB vào ô nạp khoá.',
       '4. Máy phòng mở địa chỉ LAN của máy chủ, nhập đúng mã phòng đã in. Bài mở đúng giờ như trên dịch vụ.',
       '', 'Lưu ý: chia đợt phát cho phòng sát vách dùng sơ đồ có sẵn trong bản LAN.', '', 'Các bài trong gói:', ...lines,
       ...(p.missing.length ? ['', 'Bài KHÔNG có trong gói (đăng trước khi tạo khoá LAN hoặc khoá LAN đã đổi – cần đăng lại nếu muốn dự phòng):', ...p.missing.map(t => '- ' + t)] : []),
-    ].join('
-')) });
+    ].join('\r\n')) });
     const a = document.createElement('a'), d = new Date();
     a.href = URL.createObjectURL(makeZip(files));
     a.download = `goi-du-phong-${S.school.slug}-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.zip`;
