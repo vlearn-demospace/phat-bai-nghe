@@ -127,7 +127,7 @@ Ví dụ một buổi thi cỡ LVC: 2 bài × 10 MB, 36 phòng, 3 giờ.
 | Rủi ro | Giảm thiểu |
 |---|---|
 | Trường **mất Internet** đúng giờ thi | Bản mã đã tải sớm; chỉ cần mạng lúc xin khoá (vài trăm byte). Giữ **bản LAN `server.js`** làm dự phòng; cho xuất bài + `wrappedKey` từ dịch vụ sang bản LAN. |
-| Cloudflare gặp sự cố toàn cầu | Như trên: dự phòng LAN; khuyến nghị trường nạp khoá và cho phòng tải bản mã từ hôm trước. |
+| Cloudflare gặp sự cố toàn cầu | Như trên: dự phòng LAN; khuyến nghị cho phòng tải bản mã từ hôm trước và tải sẵn "gói dự phòng". |
 | Nhà cung cấp (VLearn) bị nghi làm lộ đề – **rủi ro lớn nhất của phương án B** | Khoá chủ chỉ trong Workers Secret, một người giữ tài khoản + 2 lớp; khoá riêng từng trường; nhật ký mọi lần mở khoá; điều khoản nói rõ; sau này có chế độ tăng cường (phương án A). |
 | Lộ khoá chủ của dịch vụ | Đổi khoá chủ = bọc lại khoá riêng các trường (không phải đăng lại bài); quy trình đổi khoá viết sẵn. |
 | Lỗi phân tách trường (trường A thấy dữ liệu trường B) | `truong_id` lấy từ phiên/thẻ; kiểm thử tự động riêng cho việc truy cập chéo. |
