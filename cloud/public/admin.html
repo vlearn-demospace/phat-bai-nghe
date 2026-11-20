@@ -152,7 +152,11 @@ header .chips{margin-left:auto}
   <div class="card hidden" id="schoolHas">
     <h3>Khoá LAN dự phòng</h3>
     <div class="mute small" id="schoolInfo"></div>
-    <button id="btnSchoolNew" class="b-red mini">Gỡ khoá LAN</button>
+    <h3 style="margin-top:18px">Gói dự phòng khi mất Internet</h3>
+    <p class="mute small">Tải trước buổi thi (sau khi đã xếp lịch) một file .zip gồm các bài đã mã hoá, lịch thi và mã phòng. Khi mất Internet: giải nén vào bản LAN trên máy trường, nạp file khoá LAN từ USB, máy phòng nhập <b>đúng mã đã in</b>. Gói không chứa khoá – mất gói cũng không ai nghe được bài.</p>
+    <button id="btnPack" class="b-dark">⬇ Tải gói dự phòng LAN</button>
+    <div id="packMsg" class="note hidden"></div>
+    <div style="margin-top:14px"><button id="btnSchoolNew" class="b-red mini">Gỡ khoá LAN</button></div>
   </div>
 </section>
 </main>
@@ -311,6 +315,66 @@ async function makeSchoolKey() {
 $('btnSchool').onclick = makeSchoolKey;
 $('btnSchoolNew').onclick = () => { if (confirm('Gỡ khoá LAN? Bài đăng sau đó sẽ không có bản dự phòng LAN.')) act('lan-key', {}); };
 $('btnKeyAgain').onclick = () => lastKey && downloadKey(lastKey);
+
+// ---------- Gói dự phòng LAN: đóng .zip ngay trong trình duyệt (không nén, file đã mã hoá) ----------
+const CRC = new Uint32Array(256).map((_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; return c; });
+function crc32(u8) { let c = ~0; for (let i = 0; i < u8.length; i++) c = CRC[(c ^ u8[i]) & 255] ^ (c >>> 8); return ~c >>> 0; }
+function makeZip(files) {   // files: [{ name, data: Uint8Array }] → Blob
+  const te = new TextEncoder(), out = [], central = [];
+  let off = 0;
+  const now = new Date(), dt = ((now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1)), dd = (((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate());
+  for (const f of files) {
+    const name = te.encode(f.name), crc = crc32(f.data), h = new DataView(new ArrayBuffer(30));
+    h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x0800, true); h.setUint16(8, 0, true);
+    h.setUint16(10, dt, true); h.setUint16(12, dd, true); h.setUint32(14, crc, true); h.setUint32(18, f.data.length, true); h.setUint32(22, f.data.length, true);
+    h.setUint16(26, name.length, true); h.setUint16(28, 0, true);
+    const c = new DataView(new ArrayBuffer(46));
+    c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint16(8, 0x0800, true); c.setUint16(10, 0, true);
+    c.setUint16(12, dt, true); c.setUint16(14, dd, true); c.setUint32(16, crc, true); c.setUint32(20, f.data.length, true); c.setUint32(24, f.data.length, true);
+    c.setUint16(28, name.length, true); c.setUint32(42, off, true);
+    out.push(h, name, f.data); central.push(c, name);
+    off += 30 + name.length + f.data.length;
+  }
+  const size = central.reduce((n, x) => n + x.byteLength, 0), e = new DataView(new ArrayBuffer(22));
+  e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true); e.setUint32(12, size, true); e.setUint32(16, off, true);
+  return new Blob([...out, ...central, e], { type: 'application/zip' });
+}
+const packNote = (text, kind = '') => { const el = $('packMsg'); el.className = 'note ' + kind; el.textContent = text; show('packMsg', !!text); };
+$('btnPack').onclick = async () => {
+  const btn = $('btnPack'); btn.disabled = true;
+  try {
+    const p = await api('lan-package'), te = new TextEncoder(), j = o => te.encode(JSON.stringify(o, null, 2));
+    if (!p.exams.length) return packNote('Chưa có bài nào được bọc khoá LAN hiện tại – không có gì để đóng gói.' + (p.missing.length ? ' Bài thiếu khoá LAN: ' + p.missing.join(', ') : ''), 'warn');
+    const files = [{ name: 'data/school.json', data: j(p.school) }, { name: 'data/exams.json', data: j(p.exams) }, { name: 'data/ktvs.json', data: j(p.ktvs) }, { name: 'data/ban-do.json', data: j(p.map) }];
+    for (const [i, e] of p.exams.entries()) {
+      packNote(`Đang tải bài ${i + 1}/${p.exams.length}: ${e.title} (${mb(e.size)})…`);
+      const r = await fetch(BASE + '/api/admin/enc?id=' + encodeURIComponent(e.id), { cache: 'no-store' });
+      if (!r.ok) throw new Error('không tải được bài "' + e.title + '"');
+      const data = new Uint8Array(await r.arrayBuffer());
+      if (data.length !== e.size) throw new Error('bài "' + e.title + '" tải về không đủ');
+      files.push({ name: `data/exams/${e.id}.enc`, data });
+    }
+    const lines = p.exams.map(e => `- ${e.title}: ${e.t0 ? new Date(e.t0).toLocaleString('vi-VN') : 'chưa xếp giờ'} · ` + Object.entries(e.rooms).map(([r, c]) => `P.${r.slice(1)}=${c}`).join(', '));
+    files.push({ name: 'DOC-TRUOC.txt', data: te.encode([
+      'GÓI DỰ PHÒNG LAN – PHÁT BÀI NGHE', `Trường: ${S.school.ten} · tạo lúc ${new Date().toLocaleString('vi-VN')}`, '',
+      'Chỉ dùng khi dịch vụ trực tuyến không truy cập được.',
+      '1. Trên máy chủ của trường (máy có bản LAN), chép thư mục chương trình sang một thư mục MỚI (vd. D:\phat-bai-nghe-du-phong),',
+      '   rồi giải nén gói này vào thư mục đó (ghi đè thư mục data). KHÔNG giải nén đè lên bản LAN đang dùng thật.',
+      '2. Bấm đúp MO-CHUONG-TRINH.bat. Trang admin mở ra trên máy chủ.',
+      '3. Ngày thi: kéo thả file KHOA-LAN-phat-bai-nghe.txt từ USB vào ô nạp khoá.',
+      '4. Máy phòng mở địa chỉ LAN của máy chủ, nhập đúng mã phòng đã in. Bài mở đúng giờ như trên dịch vụ.',
+      '', 'Lưu ý: chia đợt phát cho phòng sát vách dùng sơ đồ có sẵn trong bản LAN.', '', 'Các bài trong gói:', ...lines,
+      ...(p.missing.length ? ['', 'Bài KHÔNG có trong gói (đăng trước khi tạo khoá LAN hoặc khoá LAN đã đổi – cần đăng lại nếu muốn dự phòng):', ...p.missing.map(t => '- ' + t)] : []),
+    ].join('
+')) });
+    const a = document.createElement('a'), d = new Date();
+    a.href = URL.createObjectURL(makeZip(files));
+    a.download = `goi-du-phong-${S.school.slug}-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.zip`;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+    packNote(`Đã tải gói: ${p.exams.length} bài.` + (p.missing.length ? ` Thiếu ${p.missing.length} bài không có khoá LAN: ${p.missing.join(', ')}.` : ''), p.missing.length ? 'warn' : 'ok');
+  } catch (e) { packNote('Lỗi: ' + (e.code ? e.message : e.message || 'mất kết nối'), 'err'); }
+  finally { btn.disabled = false; }
+};
 ['ck1', 'ck2'].forEach(id => $(id).onchange = () => $('btnKeyOk').disabled = !($('ck1').checked && $('ck2').checked));
 $('btnKeyOk').onclick = () => { lastKey = null; show('schoolDone', false); ['ck1', 'ck2'].forEach(id => $(id).checked = false); $('btnKeyOk').disabled = true; refresh(); };
 window.addEventListener('beforeunload', e => { if (lastKey) { e.preventDefault(); e.returnValue = ''; } });

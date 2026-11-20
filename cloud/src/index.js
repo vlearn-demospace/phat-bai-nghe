@@ -143,10 +143,11 @@ async function teacherApi(req, env, t, user, a, post) {
   const DB = env.DB;
   if (a === 'me') {
     const exams = (await DB.prepare('SELECT b.*, (SELECT COUNT(*) FROM phong p WHERE p.bai_id = b.id) AS room_count FROM bai b WHERE truong_id = ? AND teacher_id = ? ORDER BY uploaded_at').bind(t.id, user.id).all()).results;
-    return json(200, { now: Date.now(), user: { name: user.name, role: user.role }, school: t.ten, publicKey: t.public_key, keyId: await keyIdOf(t.public_key), lanPublicKey: t.lan_public_key || null, part: PART,
+    return json(200, { now: Date.now(), user: { name: user.name, role: user.role }, school: t.ten, publicKey: t.public_key, keyId: await keyIdOf(t.public_key), lanPublicKey: t.lan_public_key || null, lanKeyId: t.lan_public_key ? await keyIdOf(t.lan_public_key) : null, part: PART,
       exams: exams.map(e => ({ id: e.id, title: e.title, size: e.size, dur: e.dur, uploadedAt: e.uploaded_at, t0: e.t0, roomCount: e.room_count, verified: e.verified })) });
   }
   if (post && a === 'upload-start') {
+    if (t.het_han && Date.now() > t.het_han) return json(403, { error: 'Gói dịch vụ của trường đã hết hạn – không đăng được bài mới (bài đã xếp lịch vẫn thi bình thường)' });
     const b = await body(req), size = +b.size;
     if (!(size > 28 && size <= MAX_FILE)) return json(400, { error: 'File quá lớn (tối đa 500 MB)' });
     await DB.prepare('DELETE FROM tai_len WHERE created_at < ?').bind(Date.now() - 86400000).run();
@@ -173,6 +174,8 @@ async function teacherApi(req, env, t, user, a, post) {
     if (!/^audio\/[\w.+-]+$/.test(b.mime || '')) return fail('Định dạng âm thanh không hợp lệ: ' + b.mime);
     if (!/^[A-Za-z0-9+/=]{100,2000}$/.test(b.wrappedKey || '')) return fail('Khoá của bài không hợp lệ');
     if (b.lanWrappedKey && !/^[A-Za-z0-9+/=]{100,2000}$/.test(b.lanWrappedKey)) return fail('Khoá LAN của bài không hợp lệ');
+    const lanKeyId = b.lanWrappedKey && t.lan_public_key ? await keyIdOf(t.lan_public_key) : null;
+    if (b.lanWrappedKey && b.lanKeyId !== lanKeyId) return fail('Khoá LAN vừa đổi – tải lại trang rồi đăng lại');
     let obj;
     try { obj = await mpu.complete((Array.isArray(b.parts) ? b.parts : []).map(x => ({ partNumber: +x.partNumber, etag: String(x.etag) }))); }
     catch (e) { return fail('Máy chủ chưa nhận đủ file – bấm đăng lại'); }
@@ -183,8 +186,8 @@ async function teacherApi(req, env, t, user, a, post) {
     if (b.sha256 && b.sha256 !== sha) return fail('File nhận được bị sai lệch – bấm đăng lại');
     const title = String(b.title || 'Bài thi nghe').trim().slice(0, 120) || 'Bài thi nghe';
     await DB.batch([
-      DB.prepare('INSERT INTO bai (id, truong_id, title, teacher_id, teacher_name, mime, size, sha256, dur, wrapped_key, lan_wrapped_key, key_id, uploaded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-        .bind(up.id, t.id, title, user.id, user.name, b.mime, obj.size, sha, +b.dur || 0, b.wrappedKey, b.lanWrappedKey || null, keyId, Date.now()),
+      DB.prepare('INSERT INTO bai (id, truong_id, title, teacher_id, teacher_name, mime, size, sha256, dur, wrapped_key, lan_wrapped_key, lan_key_id, key_id, uploaded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+        .bind(up.id, t.id, title, user.id, user.name, b.mime, obj.size, sha, +b.dur || 0, b.wrappedKey, lanKeyId ? b.lanWrappedKey : null, lanKeyId, keyId, Date.now()),
       DB.prepare('DELETE FROM tai_len WHERE id = ?').bind(up.id),
     ]);
     const v = await env.TRUONG.get(env.TRUONG.idFromName(t.id)).verify(up.id);
@@ -229,18 +232,47 @@ async function adminApi(req, env, t, user, a, post, stub) {
       DB.prepare('SELECT id, name FROM ktv WHERE truong_id = ? ORDER BY name').bind(t.id).all(),
       stub.liveState(),
     ]);
-    const now = Date.now();
+    const now = Date.now(), lanId = t.lan_public_key ? await keyIdOf(t.lan_public_key) : null;
     return json(200, {
       now, user: { name: user.name }, school: { ten: t.ten, slug: t.slug, goi: t.goi, hetHan: t.het_han, lanKey: !!t.lan_public_key }, map, ktvs: ktvs.results,
       users: users.results.map(u => ({ id: u.id, name: u.name, username: u.username, role: u.role, createdAt: u.created_at, examCount: u.exam_count })),
       exams: exams.results.map(e => {
         const l = live.live[e.id] || {}, mine = rooms.results.filter(r => r.bai_id === e.id), st = live.rooms[e.id] || {};
         return { id: e.id, title: e.title, teacherName: e.teacher_name, teacherId: e.teacher_id, mime: e.mime, size: e.size, dur: e.dur, uploadedAt: e.uploaded_at, t0: e.t0, verified: e.verified,
-          bad: e.verified < 0, lan: !!e.lan_wrapped_key, released: !!e.t0 && (!!l.force || now >= e.t0), force: !!l.force, playAt: l.playAt || null, playAt2: l.playAt2 || null, wave2: l.wave2 || [],
+          bad: e.verified < 0, lan: !!lanId && e.lan_key_id === lanId, released: !!e.t0 && (!!l.force || now >= e.t0), force: !!l.force, playAt: l.playAt || null, playAt2: l.playAt2 || null, wave2: l.wave2 || [],
           codes: Object.fromEntries(mine.map(r => [r.room, r.code])), ktv: Object.fromEntries(mine.filter(r => r.ktv_id).map(r => [r.room, r.ktv_id])),
           rooms: Object.fromEntries(mine.map(r => [r.room, st[r.room] || { status: 'chưa kết nối', lastSeen: 0, pos: 0, dur: 0, activated: false, ip: '' }])) };
       }),
     });
+  }
+  if (a === 'lan-package') {   // gói dự phòng: dữ liệu theo đúng dạng thư mục data/ của bản LAN (server.js)
+    if (!t.lan_public_key) return json(400, { error: 'Trường chưa tạo khoá LAN dự phòng' });
+    const lanId = await keyIdOf(t.lan_public_key);
+    const [exams, rooms, ktvs] = await Promise.all([
+      DB.prepare('SELECT * FROM bai WHERE truong_id = ? ORDER BY uploaded_at').bind(t.id).all(),
+      DB.prepare('SELECT bai_id, room, code, ktv_id FROM phong WHERE truong_id = ? ORDER BY room').bind(t.id).all(),
+      DB.prepare('SELECT id, name FROM ktv WHERE truong_id = ? ORDER BY name').bind(t.id).all(),
+    ]);
+    const ok = exams.results.filter(e => e.lan_key_id === lanId && e.lan_wrapped_key);
+    await log(env, t.id, `${who}: tải gói dự phòng LAN (${ok.length} bài)`);
+    return json(200, {
+      school: { publicKey: t.lan_public_key, keyId: lanId, createdAt: Date.now() },
+      map,
+      ktvs: ktvs.results,
+      exams: ok.map(e => {
+        const mine = rooms.results.filter(r => r.bai_id === e.id);
+        return { id: e.id, title: e.title, teacherId: e.teacher_id, teacherName: e.teacher_name, mime: e.mime, size: e.size, sha256: e.sha256, dur: e.dur,
+          wrappedKey: e.lan_wrapped_key, keyId: lanId, uploadedAt: e.uploaded_at, t0: e.t0,
+          rooms: Object.fromEntries(mine.map(r => [r.room, r.code])), ktv: Object.fromEntries(mine.filter(r => r.ktv_id).map(r => [r.room, r.ktv_id])), tokens: {} };
+      }),
+      missing: exams.results.filter(e => !ok.includes(e)).map(e => e.title),
+    });
+  }
+  if (a === 'enc') {   // bản mã của một bài (admin tải về để đóng gói dự phòng)
+    const e = await DB.prepare('SELECT id FROM bai WHERE id = ? AND truong_id = ?').bind(new URL(req.url).searchParams.get('id') || '', t.id).first();
+    const obj = e && await env.R2.get(r2Key(t.id, e.id));
+    if (!obj) return json(404, { error: 'Không thấy file' });
+    return new Response(obj.body, { headers: { 'Content-Type': 'application/octet-stream', 'Cache-Control': 'no-store', 'Content-Length': obj.size } });
   }
   if (!post) return json(404, { error: 'Không tìm thấy' });
   const b = await body(req);

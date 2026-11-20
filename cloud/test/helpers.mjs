@@ -60,6 +60,14 @@ export async function encryptLikeTeacher(plain, publicKeyPem) {
   const sha256 = hex(await crypto.subtle.digest('SHA-256', enc));
   return { enc, wrappedKey, sha256, raw };
 }
+// Khoá LAN như trang admin tạo trong trình duyệt: PEM công khai gửi lên, file khoá riêng trường giữ
+export async function makeLanKey() {
+  const kp = await crypto.subtle.generateKey({ name: 'RSA-OAEP', modulusLength: 3072, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' }, true, ['encrypt', 'decrypt']);
+  const pem = (buf, label) => `-----BEGIN ${label}-----\n${b64(new Uint8Array(buf)).match(/.{1,64}/g).join('\n')}\n-----END ${label}-----\n`;
+  const priv = pem(await crypto.subtle.exportKey('pkcs8', kp.privateKey), 'PRIVATE KEY');
+  return { publicKey: pem(await crypto.subtle.exportKey('spki', kp.publicKey), 'PUBLIC KEY'),
+    keyFile: `KHOÁ LAN DỰ PHÒNG – PHÁT BÀI NGHE – GIỮ BÍ MẬT\r\nTạo lúc: hôm nay\r\n\r\n${priv}` };
+}
 export async function decryptLikeRoom(enc, keyB64) {
   const k = await crypto.subtle.importKey('raw', Buffer.from(keyB64, 'base64'), 'AES-GCM', false, ['decrypt']);
   return new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: enc.subarray(0, 12) }, k, enc.subarray(12)));
@@ -67,7 +75,11 @@ export async function decryptLikeRoom(enc, keyB64) {
 
 // Đăng bài qua API như trang giáo viên (chia phần theo cỡ máy chủ yêu cầu)
 export async function uploadExam(g, me, plain, title, extra = {}, slug = 'thu') {
-  const { enc, wrappedKey, sha256 } = await encryptLikeTeacher(plain, me.publicKey);
+  const { enc, wrappedKey, sha256, raw } = await encryptLikeTeacher(plain, me.publicKey);
+  if (me.lanPublicKey) {   // như trang giáo viên: trường có khoá LAN thì bọc thêm khoá bài bằng khoá LAN
+    const lan = await crypto.subtle.importKey('spki', fromPem(me.lanPublicKey), { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['encrypt']);
+    extra = { lanWrappedKey: b64(new Uint8Array(await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, lan, raw))), lanKeyId: me.lanKeyId, ...extra };
+  }
   const s = await g(`/${slug}/api/t/upload-start`, { body: { size: enc.length } });
   if (s.status !== 200) return s;
   const parts = [];

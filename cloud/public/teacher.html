@@ -168,7 +168,7 @@ $('btnUp').onclick = async () => {
       }
     }
     msg('Đang kiểm tra bài giải mã được…'); bar(97);
-    await post('upload-finish', { id: up.id, parts, lanWrappedKey, title, mime: MIMES[ext] || audioFile.type, size: enc.length, sha256, wrappedKey, keyId: S.keyId, dur: $('preview').duration || 0 });
+    await post('upload-finish', { id: up.id, parts, lanWrappedKey, lanKeyId: S.lanKeyId, title, mime: MIMES[ext] || audioFile.type, size: enc.length, sha256, wrappedKey, keyId: S.keyId, dur: $('preview').duration || 0 });
     bar(100);
     note('upOk', `Đã đăng "${title}". Admin sẽ xếp lịch cho bài này.`);
     audioFile = null; $('file').value = ''; $('title').value = ''; show('fileInfo', false); $('preview').removeAttribute('src'); show('preview', false);
