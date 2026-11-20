@@ -1,21 +1,26 @@
 <!doctype html><html lang="vi"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Phát bài nghe</title>
+<link rel="icon" href="/vlearn-logo.png">
+<meta name="theme-color" content="#0b3162">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/vlearn.css">
 <style>
-*{box-sizing:border-box}
-body{font-family:"Segoe UI",Arial,sans-serif;background:#0f172a;color:#e2e8f0;margin:0;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:16px}
-.card{background:#1e293b;padding:32px 40px;border-radius:18px;width:min(560px,100%)}
-h1{margin:0 0 4px;font-size:28px}.muted{color:#94a3b8}
-input{font:inherit;font-size:24px;padding:12px;border-radius:12px;border:2px solid #475569;background:#0f172a;color:#fff;width:100%;margin:10px 0;text-transform:lowercase}
-input:focus{outline:none;border-color:#3b82f6}
-button{font:inherit;font-size:19px;padding:12px 20px;border-radius:12px;border:0;background:#3b82f6;color:#fff;cursor:pointer;font-weight:600}
-.err{color:#f87171;min-height:24px;margin-top:10px}
+body{display:flex;min-height:100vh;align-items:center;justify-content:center;padding:16px}
+.card{width:min(480px,100%);padding:26px}
+.brand{margin-bottom:18px}
+h1{margin:0 0 4px;font-size:22px;font-weight:700;color:rgb(var(--navy-text))}
+.err{color:rgb(var(--chip-errorText));min-height:20px;margin-top:10px;font-size:13px}
+#slug{text-transform:lowercase}
 </style></head><body>
 <div class="card">
-  <h1>🎧 Phát bài nghe</h1>
-  <p class="muted">Nhập mã trường (ví dụ <b>lvc</b>), hoặc mở đúng địa chỉ in trên phiếu mã phòng.</p>
-  <input id="slug" maxlength="30" autocomplete="off" spellcheck="false" placeholder="mã trường">
-  <button id="go">Tiếp tục</button>
+  <div class="brand"><img src="/vlearn-logo.png" alt="VLearn"><div class="eyebrow">VLearn Education</div></div>
+  <h1>Phát bài nghe có khoá theo giờ</h1>
+  <p class="mute">Nhập mã trường (ví dụ <b>lvc</b>), hoặc mở đúng địa chỉ in trên phiếu mã phòng.</p>
+  <label for="slug">Mã trường</label><input type="text" id="slug" maxlength="30" autocomplete="off" spellcheck="false" placeholder="mã trường">
+  <button id="go" class="b-primary">Tiếp tục</button>
   <div class="err" id="msg"></div>
 </div>
 <script>

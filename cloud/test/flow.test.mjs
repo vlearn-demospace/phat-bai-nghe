@@ -30,6 +30,9 @@ test('trang của trường được phục vụ', async () => {
     assert.match(r.headers.get('content-type'), /text\/html/);
   }
   assert.equal((await fetch(base + '/khongco/api/time')).status, 404);
+  const css = await fetch(base + '/vlearn.css');
+  assert.equal(css.status, 200); assert.match(css.headers.get('content-type'), /text\/css/);
+  assert.equal((await fetch(base + '/vlearn-logo.png')).status, 200);
 });
 
 test('admin đăng nhập, tạo giáo viên và kỹ thuật viên', async () => {

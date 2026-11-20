@@ -1,37 +1,25 @@
 <!doctype html><html lang="vi"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Giáo viên – Phát bài nghe</title>
+<link rel="icon" href="/vlearn-logo.png">
+<meta name="theme-color" content="#0b3162">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/vlearn.css">
 <style>
-:root{--bg:#f4f6fb;--card:#fff;--ink:#0f172a;--mute:#64748b;--line:#e2e8f0;--blue:#2563eb;--green:#16a34a;--red:#dc2626;--soft:#eef2ff}
-*{box-sizing:border-box}
-body{margin:0;font-family:"Segoe UI",Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:16px}
-header{background:#0f172a;color:#fff;padding:16px 24px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
-header h1{margin:0;font-size:20px;font-weight:600}
-main{max-width:800px;margin:0 auto;padding:24px 16px 60px}
-.card{background:var(--card);border-radius:14px;padding:22px 24px;margin-bottom:16px;box-shadow:0 1px 3px #0001}
-h2{margin:0 0 4px;font-size:20px}.mute{color:var(--mute)}.small{font-size:14px}
-label{display:block;font-weight:600;margin:14px 0 6px}
-input[type=text],input[type=password]{font:inherit;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;width:100%;background:#fff}
-button{font:inherit;padding:11px 18px;border:0;border-radius:10px;background:var(--blue);color:#fff;cursor:pointer;margin:6px 8px 0 0;font-weight:600}
-button:disabled{opacity:.45;cursor:not-allowed}.b-red{background:var(--red)}.b-grey{background:#64748b}.big-btn{font-size:18px;padding:14px 24px}
-.drop{border:2px dashed #94a3b8;border-radius:14px;padding:28px;text-align:center;cursor:pointer;background:#f8fafc}
-.drop.over{border-color:var(--blue);background:var(--soft)}.drop b{display:block;font-size:18px;margin-bottom:4px}
-.note{padding:12px 16px;border-radius:10px;margin:12px 0;font-size:15px}
-.note.ok{background:#dcfce7;color:#14532d}.note.warn{background:#fef3c7;color:#78350f}.note.err{background:#fee2e2;color:#7f1d1d}.note.info{background:var(--soft);color:#1e3a8a}
-.bar{height:10px;background:var(--line);border-radius:6px;overflow:hidden;margin-top:10px}.bar div{height:100%;width:0;background:var(--blue);transition:width .2s}
-table{width:100%;border-collapse:collapse;font-size:15px}td,th{padding:9px 8px;border-bottom:1px solid var(--line);text-align:left}th{color:var(--mute);font-weight:600}
-.hidden{display:none!important}
+main{max-width:820px}
 </style></head><body>
 
-<header><h1>🎧 Phát bài nghe – Giáo viên</h1><div id="who" class="small"></div></header>
+<header><div class="brand"><img src="/vlearn-logo.png" alt="VLearn"><div><div class="eyebrow" id="school">Phát bài nghe</div><h1>Đăng bài nghe</h1></div></div><span id="who" class="chip navy hidden"></span></header>
 
 <main id="loginView" class="hidden">
-  <div class="card" style="max-width:420px;margin:40px auto">
+  <div class="card" style="width:100%;max-width:420px;margin:40px auto 0">
     <h2>Đăng nhập</h2>
     <p class="mute">Dùng tài khoản do admin cấp.</p>
     <label>Tên đăng nhập</label><input type="text" id="un" autocomplete="username" autocapitalize="none">
     <label>Mật khẩu</label><input type="password" id="pw" autocomplete="current-password">
-    <button id="btnLogin">Đăng nhập</button>
+    <button id="btnLogin" class="b-primary">Đăng nhập</button>
     <div id="loginErr" class="note err hidden"></div>
   </div>
 </main>
@@ -48,7 +36,7 @@ table{width:100%;border-collapse:collapse;font-size:15px}td,th{padding:9px 8px;b
       <audio id="preview" controls class="hidden" style="width:100%;margin-top:8px"></audio>
       <label>Tên bài</label>
       <input type="text" id="title" maxlength="120" placeholder="VD: HSG Tiếng Anh 12 – Ca sáng">
-      <button id="btnUp" class="big-btn">🔒 Mã hoá và đăng bài</button>
+      <button id="btnUp" class="b-primary big-btn">🔒 Mã hoá và đăng bài</button>
       <div id="prog" class="hidden"><div id="progMsg" class="mute"></div><div class="bar"><div id="progBar"></div></div></div>
       <div id="upErr" class="note err hidden"></div>
       <div id="upOk" class="note ok hidden"></div>
@@ -68,7 +56,7 @@ table{width:100%;border-collapse:collapse;font-size:15px}td,th{padding:9px 8px;b
     <button id="btnPw">Đổi mật khẩu</button>
     <div id="pwMsg" class="note hidden"></div>
   </div>
-  <button id="btnOut" class="b-grey">Đăng xuất</button>
+  <div><button id="btnOut" class="b-ghost">Đăng xuất</button></div>
 </main>
 
 <script>
@@ -92,9 +80,9 @@ const post = (a, obj) => api(a, { body: JSON.stringify(obj || {}), json: true })
 
 async function refresh() {
   try { S = await api('me'); }
-  catch (e) { if (e.code === 403) { show('loginView', true); show('app', false); $('who').textContent = ''; } return; }
+  catch (e) { if (e.code === 403) { show('loginView', true); show('app', false); show('who', false); } return; }
   show('loginView', false); show('app', true);
-  $('who').textContent = S.user.name;
+  $('who').textContent = S.user.name; show('who', true); $('school').textContent = 'Phát bài nghe · ' + S.school;
   show('noKey', !S.publicKey); show('form', !!S.publicKey);
   show('empty', !S.exams.length); show('tbl', !!S.exams.length);
   const html = S.exams.map(e => `<tr><td><b>${esc(e.title)}</b><div class="mute small">${mb(e.size)}${e.dur ? ' · dài ' + mmss(e.dur) : ''}</div></td>

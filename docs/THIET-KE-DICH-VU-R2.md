@@ -14,6 +14,8 @@ Giữ nguyên từ bản hiện tại:
 - Phát đồng loạt, tự chia 2 đợt xen kẽ cho phòng sát vách theo sơ đồ trường.
 - Định dạng bản mã không đổi (`iv(12) || ciphertext || tag(16)`), để file có thể chuyển qua lại với bản chạy LAN.
 
+Giao diện: theo hệ thiết kế VLearn Portal (`DESIGN.md` của vlearn-portal) – navy #0b3162 cho cấu trúc, cam #f78a2d cho một hành động chính mỗi màn, thẻ trắng viền mảnh trên nền #eef1f5, font Be Vietnam Pro, có chế độ tối; máy phòng thi luôn dùng giao diện tối, đồng hồ đếm ngược cỡ lớn để cả phòng nhìn thấy (ngoại lệ có chủ đích với thang cỡ chữ). Dùng chung một file `cloud/public/vlearn.css`.
+
 ## 2. Kiến trúc
 
 ```

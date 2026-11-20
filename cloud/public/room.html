@@ -1,34 +1,42 @@
-<!doctype html><html lang="vi"><head><meta charset="utf-8">
+<!doctype html><html lang="vi" class="dark"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Phòng thi – Phát bài nghe</title>
+<link rel="icon" href="/vlearn-logo.png">
+<meta name="theme-color" content="#0d131e">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/vlearn.css">
 <style>
-*{box-sizing:border-box}
-body{font-family:"Segoe UI",Arial,sans-serif;background:#0f172a;color:#e2e8f0;margin:0;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:16px}
-.card{background:#1e293b;padding:32px 40px;border-radius:18px;width:min(760px,100%)}
-h1{margin:0 0 4px;font-size:30px}.muted{color:#94a3b8}
-.clock{font-size:72px;font-variant-numeric:tabular-nums;font-weight:700;margin:14px 0;letter-spacing:2px}
-.clock.ready{color:#4ade80}.clock.play{color:#60a5fa}
-.steps div{padding:7px 0;font-size:19px}.ok{color:#4ade80}.wait{color:#fbbf24}.err{color:#f87171}
-button{font:inherit;font-size:19px;padding:12px 20px;border-radius:12px;border:0;background:#3b82f6;color:#fff;cursor:pointer;margin:10px 10px 0 0;font-weight:600}
-button.secondary{background:#475569}button:disabled{opacity:.4;cursor:not-allowed}
-button.pulse{animation:p 1.4s infinite}@keyframes p{50%{box-shadow:0 0 0 10px #3b82f633}}
-input{font:inherit;font-size:30px;letter-spacing:6px;text-align:center;text-transform:uppercase;padding:14px;border-radius:12px;border:2px solid #475569;background:#0f172a;color:#fff;width:100%;margin:10px 0}
-input:focus{outline:none;border-color:#3b82f6}
-audio{width:100%;margin-top:18px}.hidden{display:none}
-.msg{min-height:26px;font-size:17px;margin-top:12px}
-.bar{height:8px;background:#334155;border-radius:4px;overflow:hidden;margin-top:6px}.bar div{height:100%;width:0;background:#3b82f6}
+/* Màn hình máy phòng thi: giao diện tối của VLearn, chữ lớn để đọc từ xa */
+body{display:flex;min-height:100vh;align-items:center;justify-content:center;padding:16px;font-size:16px}
+.card{width:min(760px,100%);padding:28px clamp(18px,4vw,40px);border-radius:16px}
+.brand{margin-bottom:18px}.brand .eyebrow{font-size:13px}
+h1{margin:0 0 4px;font-size:30px;font-weight:700;color:rgb(var(--navy-text));line-height:1.15}
+.muted{color:rgb(var(--slate))}
+/* Đồng hồ đếm ngược: cỡ lớn có chủ đích, để cả phòng nhìn thấy từ cuối lớp */
+.clock{font-size:clamp(48px,11vw,88px);font-variant-numeric:tabular-nums;font-weight:700;margin:14px 0;letter-spacing:2px;color:rgb(var(--ink));line-height:1.1}
+.clock.ready{color:rgb(var(--success))}.clock.play{color:rgb(var(--orange))}
+.steps div{padding:6px 0;font-size:16px}.ok{color:rgb(var(--success))}.wait{color:rgb(var(--chip-orangeText))}.err{color:rgb(var(--chip-errorText))}
+button{height:44px;font-size:15px}
+.pulse{background:rgb(var(--orange));border-color:rgb(var(--orange));color:rgb(var(--on-orange))}
+.pulse:hover:not(:disabled){background:rgb(var(--orange-hover));border-color:rgb(var(--orange-hover))}
+input#inCode{height:64px;font-size:30px;letter-spacing:8px;text-align:center;text-transform:uppercase;margin:10px 0;font-weight:700;color:rgb(var(--navy-text))}
+audio{width:100%;margin-top:18px}
+.msg{min-height:24px;font-size:15px;margin-top:12px}
 </style></head><body>
 
 <div class="card" id="login">
+  <div class="brand"><img src="/vlearn-logo.png" alt="VLearn"><div class="eyebrow">Phát bài nghe · Máy phòng thi</div></div>
   <h1>Đăng nhập phòng thi</h1>
   <p class="muted">Nhập mã truy cập in trên phiếu của phòng.</p>
   <input id="inCode" maxlength="8" autocomplete="off" spellcheck="false" placeholder="MÃ PHÒNG">
-  <button id="btnLogin">Vào phòng</button>
+  <button id="btnLogin" class="b-primary big-btn">Vào phòng</button>
   <div class="msg err" id="loginMsg"></div>
 </div>
 
 <div class="card hidden" id="main">
-  <div class="muted" id="examTitle"></div>
+  <div class="brand"><img src="/vlearn-logo.png" alt="VLearn"><div class="eyebrow" id="examTitle"></div></div>
   <h1 id="title"></h1>
   <div class="muted">Giờ máy chủ: <span id="srvClock"></span> · Mở khoá lúc <span id="t0txt"></span></div>
   <div class="clock" id="countdown">--:--:--</div>
@@ -41,8 +49,8 @@ audio{width:100%;margin-top:18px}.hidden{display:none}
   <div class="bar hidden" id="dlBar"><div></div></div>
   <div class="msg muted" id="msg"></div>
   <button id="btnSpeaker" class="pulse">🔊 Thử loa</button>
-  <button id="btnPlay" class="secondary" disabled>▶ Phát thủ công</button>
-  <button id="btnLogout" class="secondary">Đăng xuất</button>
+  <button id="btnPlay" class="b-ghost" disabled>▶ Phát thủ công</button>
+  <button id="btnLogout" class="b-ghost">Đăng xuất</button>
   <audio id="player" controls controlsList="nodownload noplaybackrate" class="hidden"></audio>
 </div>
 

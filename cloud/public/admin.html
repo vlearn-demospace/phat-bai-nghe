@@ -1,76 +1,30 @@
 <!doctype html><html lang="vi"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Admin – Phát bài nghe</title>
+<link rel="icon" href="/vlearn-logo.png">
+<meta name="theme-color" content="#0b3162">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/vlearn.css">
 <style>
-:root{--bg:#f4f6fb;--card:#fff;--ink:#0f172a;--mute:#64748b;--line:#e2e8f0;--blue:#2563eb;--green:#16a34a;--red:#dc2626;--amber:#d97706;--soft:#eef2ff}
-*{box-sizing:border-box}
-body{margin:0;font-family:"Segoe UI",Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:16px}
-header{background:#0f172a;color:#fff;padding:16px 24px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
-header h1{margin:0;font-size:20px;font-weight:600}
-.chips{display:flex;gap:8px;flex-wrap:wrap}
-.chip{padding:6px 12px;border-radius:999px;font-size:14px;background:#1e293b;color:#cbd5e1}
-.chip.ok{background:#14532d;color:#bbf7d0}.chip.bad{background:#7f1d1d;color:#fecaca}
-nav{display:flex;gap:4px;padding:0 24px;background:#fff;border-bottom:1px solid var(--line);overflow-x:auto}
-nav button{background:none;border:0;border-bottom:3px solid transparent;padding:14px 16px;font-size:16px;color:var(--mute);cursor:pointer;white-space:nowrap;border-radius:0;margin:0}
-nav button.on{color:var(--blue);border-bottom-color:var(--blue);font-weight:600}
-main{max-width:1000px;margin:0 auto;padding:24px 16px 60px}
-.card{background:var(--card);border-radius:14px;padding:22px 24px;margin-bottom:16px;box-shadow:0 1px 3px #0001}
-h2{margin:0 0 4px;font-size:20px}h3{margin:0 0 10px;font-size:17px}
-.mute{color:var(--mute)}.small{font-size:14px}
-label{display:block;font-weight:600;margin:14px 0 6px}
-input[type=text],input[type=date],input[type=time],input[type=number],input[type=password],select{font:inherit;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;width:100%;background:#fff}
-.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
-button{font:inherit;padding:11px 18px;border:0;border-radius:10px;background:var(--blue);color:#fff;cursor:pointer;margin:6px 8px 0 0;font-weight:600}
-button:disabled{opacity:.45;cursor:not-allowed}
-.b-green{background:var(--green)}.b-red{background:var(--red)}.b-grey{background:#64748b}.b-light{background:var(--soft);color:var(--blue)}
-.big-btn{font-size:20px;padding:16px 28px}.mini{padding:7px 12px;font-size:14px;margin:2px 4px 2px 0}
-.drop{border:2px dashed #94a3b8;border-radius:14px;padding:28px;text-align:center;cursor:pointer;background:#f8fafc;transition:.15s}
-.drop.over{border-color:var(--blue);background:var(--soft)}
-.drop b{display:block;font-size:18px;margin-bottom:4px}
-.note{padding:12px 16px;border-radius:10px;margin:12px 0;font-size:15px}
-.note.ok{background:#dcfce7;color:#14532d}.note.warn{background:#fef3c7;color:#78350f}.note.err{background:#fee2e2;color:#7f1d1d}.note.info{background:var(--soft);color:#1e3a8a}
-table{width:100%;border-collapse:collapse;font-size:15px}td,th{padding:9px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{color:var(--mute);font-weight:600}
-.code{font-family:Consolas,monospace;font-size:18px;letter-spacing:2px;font-weight:700}
-.url{font-family:Consolas,monospace;font-size:20px;word-break:break-all;background:#f1f5f9;padding:12px 14px;border-radius:10px;margin:8px 0}
-.cmd{font-family:Consolas,monospace;font-size:13px;word-break:break-all;background:#0f172a;color:#e2e8f0;padding:12px 14px;border-radius:10px;margin:8px 0}
-.count{font-size:34px;font-weight:700;font-variant-numeric:tabular-nums;margin:6px 0}
-.stats{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}
-.stat{background:#f1f5f9;border-radius:10px;padding:10px 14px;min-width:100px}.stat b{display:block;font-size:22px}
-.on{color:var(--green)}.off{color:var(--red)}
-.hidden{display:none!important}
-.check{display:flex;gap:10px;align-items:flex-start;margin:8px 0;font-weight:400}.check input{margin-top:4px;width:18px;height:18px}
-.scroll{overflow-x:auto}
-.map{table-layout:fixed;min-width:860px;border:1px solid #475569;margin:6px 0 16px}
-.map td{border:1px solid #475569;padding:0;text-align:center;vertical-align:middle;font-size:13px;line-height:1.25;height:64px}
-.map .fix{padding:4px;font-weight:600;color:#475569}
-.map .wc{font-style:italic;font-weight:600;font-size:12px}
-.map .y{background:#fef08a;color:#1d4ed8;font-weight:700}
-.cell{display:block;width:100%;height:100%;min-height:64px;margin:0;padding:4px;border:0;border-radius:0;background:#fff;color:var(--ink);font-weight:400;font-size:13px;line-height:1.25}
-.cell b{display:block;font-size:14px}.cell i{display:block;font-style:normal;font-weight:700;font-size:12px;margin-top:2px}
-.cell:hover:not(:disabled){outline:2px solid var(--blue);outline-offset:-2px}
-.cell:focus-visible{outline:3px solid var(--blue);outline-offset:-3px}
-.cell.none{background:#cbd5e1}
-.cell:disabled{background:#e2e8f0;color:#64748b;opacity:1}
-.brushes{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
-.brush{margin:0;padding:8px 14px;border:2px solid transparent;color:var(--ink);font-weight:600}
-.brush.on{border-color:var(--ink)}
-.k0{background:#bfdbfe}.k1{background:#bbf7d0}.k2{background:#fed7aa}.k3{background:#e9d5ff}.k4{background:#fecdd3}.k5{background:#a5f3fc}.k6{background:#d9f99d}.k7{background:#fde68a}
+header .chips{margin-left:auto}
 </style></head><body>
 
 <header>
-  <h1>🎧 Phát bài nghe – Admin</h1>
-  <div class="chips"><span class="chip" id="chExam">Bài: –</span><span class="chip ok" id="chKey">Mở khoá: tự động</span><span class="chip" id="chNet">–</span></div>
+  <div class="brand"><img src="/vlearn-logo.png" alt="VLearn"><div><div class="eyebrow">Phát bài nghe · Admin trường</div><h1 id="schoolName">Phát bài nghe</h1></div></div>
+  <div class="chips"><span class="chip" id="chExam">Bài: –</span><span class="chip ok" id="chKey">Mở khoá tự động</span></div>
 </header>
 
-<div id="lostConn" class="hidden" style="background:#dc2626;color:#fff;padding:12px 24px;font-weight:600">⚠ Mất kết nối với máy chủ – kiểm tra mạng Internet. Trang sẽ tự kết nối lại.</div>
+<div id="lostConn" class="hidden note err" style="margin:0;border-radius:0;font-weight:600;padding:12px clamp(16px,3vw,44px)">⚠ Mất kết nối với máy chủ – kiểm tra mạng Internet. Trang sẽ tự kết nối lại.</div>
 
 <main id="loginView" class="hidden">
-  <div class="card" style="max-width:420px;margin:40px auto">
+  <div class="card" style="width:100%;max-width:420px;margin:40px auto 0">
     <h2>Đăng nhập admin</h2>
     <p class="mute">Dùng tài khoản admin của trường.</p>
     <label>Tên đăng nhập</label><input type="text" id="un" autocomplete="username" autocapitalize="none">
     <label>Mật khẩu</label><input type="password" id="pw" autocomplete="current-password">
-    <button id="btnLogin">Đăng nhập</button>
+    <button id="btnLogin" class="b-primary">Đăng nhập</button>
     <div id="loginErr" class="note err hidden"></div>
   </div>
 </main>
@@ -105,13 +59,13 @@ table{width:100%;border-collapse:collapse;font-size:15px}td,th{padding:9px 8px;b
     <div style="display:flex;gap:8px;max-width:420px"><input type="text" id="ktvQuick" maxlength="80" placeholder="Thêm kỹ thuật viên mới"><button id="btnKtvQuick" class="b-light" style="margin:0;white-space:nowrap">Thêm</button></div>
     <div id="mapBox" style="margin-top:14px"></div>
     <div class="mute small" id="mapSum"></div>
-    <button id="btnSched">Lưu lịch và phân phòng</button>
+    <button id="btnSched" class="b-primary">Lưu lịch và phân phòng</button>
     <button id="btnSchedX" class="b-grey">Đóng</button>
     <div id="schedErr" class="note err hidden"></div>
   </div>
   <div class="card hidden" id="codesCard">
     <h2 id="codesTitle">Mã phòng</h2>
-    <button id="btnPrint">🖨 In phiếu mã phòng</button>
+    <button id="btnPrint" class="b-dark">In phiếu mã phòng</button>
     <button id="btnCodesX" class="b-grey">Đóng</button>
     <div class="scroll"><table style="margin-top:10px"><thead><tr><th>Phòng</th><th>Kỹ thuật viên</th><th>Mã</th><th>Link</th></tr></thead><tbody id="codeRows"></tbody></table></div>
   </div>
@@ -129,7 +83,7 @@ table{width:100%;border-collapse:collapse;font-size:15px}td,th{padding:9px 8px;b
     <h3>Phát đồng loạt nhiều bài</h3>
     <p class="mute small">Tích các bài cần phát cùng lúc. Mọi phòng của các bài đó bắt đầu sau 5 giây; trong 5 giây đó có thể huỷ.</p>
     <div id="playPicks"></div>
-    <button class="b-green big-btn" id="btnPlayMany">▶ Phát các bài đã chọn</button>
+    <button class="b-primary big-btn" id="btnPlayMany">▶ Phát các bài đã chọn</button>
     <button class="b-grey" id="btnCancelAll">Huỷ lệnh phát</button>
   </div>
   <div id="noSched" class="note info hidden">Chưa có bài nào được xếp lịch.</div>
@@ -141,7 +95,7 @@ table{width:100%;border-collapse:collapse;font-size:15px}td,th{padding:9px 8px;b
   <div class="card">
     <h2>Kỹ thuật viên</h2>
     <p class="mute small">Kỹ thuật viên không cần tài khoản, chỉ cần tên để phân phòng. Họ vào phòng bằng mã trên phiếu.</p>
-    <div style="display:flex;gap:8px;max-width:420px"><input type="text" id="ktvName" maxlength="80" placeholder="Họ tên kỹ thuật viên"><button id="btnKtv" style="margin:0;white-space:nowrap">Thêm</button></div>
+    <div style="display:flex;gap:8px;max-width:420px"><input type="text" id="ktvName" maxlength="80" placeholder="Họ tên kỹ thuật viên"><button id="btnKtv" class="b-dark" style="margin:0;white-space:nowrap">Thêm</button></div>
     <div id="ktvErr" class="note err hidden"></div>
     <div id="noKtv" class="mute hidden" style="margin-top:10px">Chưa có kỹ thuật viên nào.</div>
     <div class="scroll"><table id="ktvTbl" class="hidden" style="margin-top:8px"><thead><tr><th>Họ tên</th><th>Số phòng đang phân</th><th></th></tr></thead><tbody id="ktvRows"></tbody></table></div>
@@ -154,7 +108,7 @@ table{width:100%;border-collapse:collapse;font-size:15px}td,th{padding:9px 8px;b
       <div><label>Tên đăng nhập</label><input type="text" id="uLogin" maxlength="30" placeholder="vd: co.lan" autocapitalize="none"></div>
       <div><label>Vai trò</label><select id="uRole"><option value="teacher">Giáo viên</option><option value="admin">Admin</option></select></div>
     </div>
-    <button id="btnUser">Tạo tài khoản</button>
+    <button id="btnUser" class="b-primary">Tạo tài khoản</button>
     <div id="uErr" class="note err hidden"></div>
     <div id="uDone" class="note ok hidden"></div>
   </div>
@@ -179,12 +133,12 @@ table{width:100%;border-collapse:collapse;font-size:15px}td,th{padding:9px 8px;b
     <div class="cmd" id="kiosk"></div>
     <button class="b-light" id="cpKiosk">Sao chép lệnh shortcut</button>
     <div class="mute small" id="planInfo" style="margin-top:14px"></div>
-    <button class="b-grey" id="btnOut">Đăng xuất</button>
+    <button class="b-ghost" id="btnOut">Đăng xuất</button>
   </div>
   <div class="card hidden" id="schoolNo">
     <h2>Khoá LAN dự phòng (tuỳ chọn)</h2>
     <p class="mute">Dịch vụ tự mở khoá đúng giờ, không cần khoá này. Tạo khoá LAN nếu muốn dự phòng khi mất Internet: từ đó mỗi bài đăng mới được bọc thêm bằng khoá LAN, mở được bằng chương trình chạy trên máy trường (bản LAN). Dịch vụ chỉ lưu phần công khai; phần bí mật tải về thành <b>file khoá</b>, cất vào USB.</p>
-    <button id="btnSchool" class="big-btn">🔑 Tạo khoá LAN dự phòng</button>
+    <button id="btnSchool" class="b-dark">Tạo khoá LAN dự phòng</button>
     <div id="schoolErr" class="note err hidden"></div>
   </div>
   <div class="card hidden" id="schoolDone">
@@ -249,7 +203,7 @@ function render() {
   const now = S.now, ex = S.exams, sch = ex.filter(e => e.t0);
   // chips
   $('chExam').textContent = `Bài: ${ex.length} · đã xếp lịch: ${sch.length}`; $('chExam').className = 'chip ' + (ex.length ? 'ok' : '');
-  $('chNet').textContent = S.school.ten; document.title = 'Admin – ' + S.school.ten; $('gHint').textContent = baseUrl() + '/g';
+  $('schoolName').textContent = S.school.ten; document.title = 'Admin – ' + S.school.ten; $('gHint').textContent = baseUrl() + '/g';
 
   // ----- Bài nghe
   show('noExam', !ex.length); show('examTbl', !!ex.length);
@@ -460,9 +414,9 @@ $('btnPrint').onclick = () => {
     <div class="h">Mở khoá lúc ${fmt(ex.t0)}. Sau khi vào: bấm “Thử loa”, để nguyên máy, chờ lệnh phát.</div></div>`).join('');
   const w = window.open('', '_blank');
   w.document.write(`<!doctype html><meta charset="utf-8"><title>Phiếu mã phòng</title><style>
-    body{font-family:"Segoe UI",Arial,sans-serif;margin:10mm}.grid{display:grid;grid-template-columns:1fr 1fr;gap:0}
+    body{font-family:"Be Vietnam Pro","Segoe UI",Arial,sans-serif;margin:10mm;color:#424242}.grid{display:grid;grid-template-columns:1fr 1fr;gap:0}
     .slip{border:1px dashed #555;padding:10px 14px;page-break-inside:avoid;font-size:13px}
-    .r{font-size:22px;font-weight:700}.t{color:#444;margin-bottom:6px}.c{font-family:Consolas,monospace;font-size:28px;font-weight:700;letter-spacing:4px;margin:2px 0 6px}
+    .r{font-size:22px;font-weight:700;color:#0b3162}.t{color:#444;margin-bottom:6px}.c{font-family:Consolas,monospace;font-size:30px;font-weight:700;letter-spacing:4px;margin:2px 0 6px;color:#0b3162}
     .l{word-break:break-all;margin:4px 0}.h{color:#555;font-size:11px;margin-top:6px}
     @media print{button{display:none}}</style>
     <button onclick="print()" style="font-size:16px;padding:8px 16px;margin-bottom:10px">🖨 In</button>

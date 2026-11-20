@@ -22,7 +22,7 @@ export default {
     const ip = req.headers.get('cf-connecting-ip') || '127.0.0.1';
     try {
       if (!parts.length) return page(env, req, 'index.html');
-      if (parts[0] === 'robots.txt') return env.ASSETS.fetch(req);
+      if (parts.length === 1 && /^[\w.-]+\.(css|png|txt|ico)$/.test(parts[0])) return env.ASSETS.fetch(req);   // vlearn.css, logo, robots.txt
       if (req.method === 'POST' && !sameOrigin(req)) return json(403, { error: 'Yêu cầu không hợp lệ' });
       if (parts[0] === 'api') return await superApi(req, env, parts.slice(1));
 
