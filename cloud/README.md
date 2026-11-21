@@ -101,7 +101,8 @@ Admin tạo khoá LAN (tab "Cài đặt trường", file khoá cất USB) → b�
 sau khi xếp lịch, bấm "Tải gói dự phòng LAN": file .zip (đóng ngay trong trình duyệt) gồm `data/` đúng dạng của `server.js`
 (bài đã mã hoá, lịch, mã phòng, kỹ thuật viên) và `DOC-TRUOC.txt`. Mất Internet: giải nén vào một bản sao MỚI của bản LAN,
 chạy MO-CHUONG-TRINH.bat, nạp file khoá LAN, máy phòng nhập đúng mã đã in. Gói không chứa khoá.
-Giới hạn: bản LAN chia đợt theo sơ đồ cài sẵn trong `server.js` (sơ đồ LVC); trường khác vẫn thi được nhưng không tự chia đợt.
+Gói có `data/ban-do.json` (sơ đồ của trường): bản LAN dùng sơ đồ này để hiện sơ đồ, kiểm tra phòng và chia đợt phòng sát vách.
+Không có file hoặc file lỗi thì bản LAN dùng sơ đồ LVC cài sẵn trong `server.js` (như trước) và ghi lý do vào `log.txt`.
 
 ## Bảo mật tài khoản và mã phòng
 - **Xác thực 2 lớp** (TOTP, dùng Google/Microsoft Authenticator): mỗi admin tự bật ở tab "Cài đặt trường" bằng mã QR.
@@ -117,5 +118,4 @@ Giới hạn: bản LAN chia đợt theo sơ đồ cài sẵn trong `server.js` 
 
 ## Chưa làm
 - Thu tiền (gói cước đã có trường `goi`, `het_han`; siêu admin gia hạn bằng tay).
-- Bản LAN đọc `data/ban-do.json` trong gói (để trường khác cũng chia đợt khi chạy dự phòng).
 - 2 lớp cho siêu admin (hiện chỉ có SUPER_TOKEN).

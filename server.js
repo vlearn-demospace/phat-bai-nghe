@@ -10,6 +10,7 @@ const EXAMS_FILE = path.join(DATA, 'exams.json');
 const USERS_FILE = path.join(DATA, 'users.json');
 const SCHOOL_FILE = path.join(DATA, 'school.json');
 const KTV_FILE = path.join(DATA, 'ktvs.json');
+const MAP_FILE = path.join(DATA, 'ban-do.json');   // sơ đồ riêng của trường (có trong gói dự phòng của bản dịch vụ)
 const LOG_FILE = path.join(__dirname, 'log.txt');
 fs.mkdirSync(EXAMS_DIR, { recursive: true });
 
@@ -28,7 +29,7 @@ const fails = {};                         // chống dò mã: đếm lần nhậ
 const SESSION_MS = 30 * 86400000;
 
 // Sơ đồ phòng học lý thuyết năm học 2026 – 2027, áp dụng từ 05/9/2026. null = ô cầu thang giữa dãy.
-const SCHOOL_MAP = [
+const LVC_MAP = [
   { title: 'KHU 20 PHÒNG (DÃY TRƯỚC SẢNH)', floors: [
     { n: 4, wait: 'PHÒNG ĐỢI', rooms: [['409', '12 SINH'], ['408', '12 HOÁ'], null, ['407', '12 LÝ'], ['406', '12 TOÁN 2'], ['405', '12 TOÁN 1']] },
     { n: 3, wait: 'PHÒNG ĐỢI', rooms: [['309', '12 TIN'], ['308', '12 VĂN'], null, ['307', '12 ANH 1'], ['306', '12 ANH 2'], ['305', '11 TOÁN 1']] },
@@ -42,6 +43,25 @@ const SCHOOL_MAP = [
     { n: 1, wait: 'PHÒNG THIẾT BỊ GDQP', rooms: [['104', 'DỰ PHÒNG'], ['103', 'DỰ PHÒNG'], ['102', '10 ANH'], ['101', '10 ĐỊA']] },
   ] },
 ];
+// Có data/ban-do.json hợp lệ thì dùng sơ đồ đó (trường khác chạy gói dự phòng vẫn chia đợt đúng); không có hoặc lỗi thì dùng sơ đồ LVC.
+function validMap(m) {
+  const ids = new Set(), str = (v, n) => typeof v === 'string' && v.length <= n;
+  if (!Array.isArray(m) || !m.length || m.length > 20) return false;
+  for (const k of m) {
+    if (!k || !str(k.title, 80) || !Array.isArray(k.floors) || !k.floors.length || k.floors.length > 30) return false;
+    for (const f of k.floors) {
+      if (!f || !['string', 'number'].includes(typeof f.n) || (f.wait != null && !str(f.wait, 40)) || !Array.isArray(f.rooms) || f.rooms.length > 40) return false;
+      for (const r of f.rooms) {
+        if (r === null) continue;
+        if (!Array.isArray(r) || !/^[A-Za-z0-9-]{1,10}$/.test(r[0]) || !str(r[1] ?? '', 40) || ids.has(r[0])) return false;
+        ids.add(r[0]);
+      }
+    }
+  }
+  return ids.size > 0;
+}
+const customMap = readJson(MAP_FILE, null);
+const SCHOOL_MAP = validMap(customMap) ? customMap : LVC_MAP;
 const ROOM_IDS = new Set(SCHOOL_MAP.flatMap(k => k.floors.flatMap(f => f.rooms.filter(Boolean).map(r => 'P' + r[0]))));
 
 const saveExams = () => writeJson(EXAMS_FILE, exams);
@@ -550,6 +570,7 @@ http.createServer(async (req, res) => {
   if (e.code === 'EADDRINUSE') { console.log(`\nChương trình đã đang chạy (cổng ${PORT} bận). Mở trình duyệt vào http://localhost:${PORT}/a`); openBrowser(); setTimeout(() => process.exit(), 4000); }
   else console.log(e);
 }).listen(PORT, () => {
+  if (customMap) log(SCHOOL_MAP === customMap ? `Dùng sơ đồ phòng trong data/ban-do.json (${ROOM_IDS.size} phòng)` : 'data/ban-do.json không hợp lệ – dùng sơ đồ LVC có sẵn');
   log(`Máy chủ chạy tại http://localhost:${PORT}  (admin: /a · giáo viên: /g · kỹ thuật viên: /) · Node ${process.version}`);
   if (fs.existsSync(path.join(DATA, 'config.json'))) log('LƯU Ý: có đề kiểu cũ trong data/config.json. Bản này không dùng đề đó; hãy đăng lại bài qua trang giáo viên.');
   console.log('Giữ cửa sổ này MỞ trong suốt buổi thi. Đóng cửa sổ = tắt chương trình.\n');

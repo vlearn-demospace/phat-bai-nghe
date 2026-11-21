@@ -79,6 +79,7 @@ test('bản LAN (server.js) chạy gói: đúng mã phòng, khoá chỉ mở đ�
   writeFileSync(join(lanDir, 'data', 'school.json'), j(S.pkg.school));
   writeFileSync(join(lanDir, 'data', 'exams.json'), j(S.pkg.exams));
   writeFileSync(join(lanDir, 'data', 'ktvs.json'), j(S.pkg.ktvs));
+  writeFileSync(join(lanDir, 'data', 'ban-do.json'), j(S.pkg.map));
   writeFileSync(join(lanDir, 'data', 'exams', S.id + '.enc'), S.enc);
 
   const port = 19700 + Math.floor(Math.random() * 300), lan = `http://localhost:${port}`;
@@ -99,4 +100,30 @@ test('bản LAN (server.js) chạy gói: đúng mã phòng, khoá chỉ mở đ�
   assert.equal(key.status, 200);
   const out = await decryptLikeRoom(enc, (await key.json()).key);
   assert.ok(Buffer.from(out).equals(Buffer.from(S.plain)));
+  S.lanUrl = lan;
+});
+
+test('bản LAN dùng sơ đồ trong gói (data/ban-do.json): hiện đúng sơ đồ, chia đợt theo sơ đồ đó', async () => {
+  const st = await fetch(S.lanUrl + '/api/admin/status').then(r => r.json());
+  assert.deepEqual(st.map, S.pkg.map);
+  // P101 và P102 sát vách trên sơ đồ của trường -> P102 sang đợt 2
+  const play = await fetch(S.lanUrl + '/api/admin/play', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ids: [S.id] }) }).then(r => r.json());
+  assert.equal(play.wave2, 1, JSON.stringify(play));
+  const st2 = await fetch(S.lanUrl + '/api/admin/status').then(r => r.json());
+  assert.deepEqual(st2.exams.find(e => e.id === S.id).wave2, ['P102']);
+});
+
+test('ban-do.json lỗi: bản LAN bỏ qua, dùng sơ đồ LVC có sẵn', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'pbn-lan2-'));
+  writeFileSync(join(dir, 'server.js'), readFileSync(join(REPO, 'server.js')));
+  cpSync(join(REPO, 'public'), join(dir, 'public'), { recursive: true });
+  mkdirSync(join(dir, 'data'), { recursive: true });
+  writeFileSync(join(dir, 'data', 'ban-do.json'), JSON.stringify([{ title: 'X', floors: [{ n: 1, rooms: [['1 0', 'A']] }] }]));
+  const port = 19400 + Math.floor(Math.random() * 300), url = `http://localhost:${port}`;
+  const p = spawn(process.execPath, ['server.js'], { cwd: dir, env: { ...process.env, PORT: String(port), NO_OPEN: '1' }, stdio: 'ignore' });
+  try {
+    for (let i = 0; ; i++) { try { if ((await fetch(url + '/api/time')).ok) break; } catch {} if (i > 60) throw new Error('bản LAN không chạy'); await sleep(250); }
+    const st = await fetch(url + '/api/admin/status').then(r => r.json());
+    assert.match(st.map[0].title, /KHU 20 PHÒNG/);
+  } finally { p.kill(); await sleep(300); try { rmSync(dir, { recursive: true, force: true }); } catch {} }
 });

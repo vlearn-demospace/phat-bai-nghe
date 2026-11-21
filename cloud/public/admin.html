@@ -507,7 +507,7 @@ $('btnPack').onclick = async () => {
       '2. Bấm đúp MO-CHUONG-TRINH.bat. Trang admin mở ra trên máy chủ.',
       '3. Ngày thi: kéo thả file KHOA-LAN-phat-bai-nghe.txt từ USB vào ô nạp khoá.',
       '4. Máy phòng mở địa chỉ LAN của máy chủ, nhập đúng mã phòng đã in. Bài mở đúng giờ như trên dịch vụ.',
-      '', 'Lưu ý: chia đợt phát cho phòng sát vách dùng sơ đồ có sẵn trong bản LAN.', '', 'Các bài trong gói:', ...lines,
+      '', 'Sơ đồ phòng của trường nằm ở data/ban-do.json: bản LAN mới đọc file này để hiện sơ đồ và chia đợt phòng sát vách (cửa sổ chương trình ghi "Dùng sơ đồ phòng trong data/ban-do.json"). Bản LAN cũ bỏ qua file này và dùng sơ đồ LVC có sẵn – vẫn thi được, chỉ chia đợt không đúng.', '', 'Các bài trong gói:', ...lines,
       ...(p.missing.length ? ['', 'Bài KHÔNG có trong gói (đăng trước khi tạo khoá LAN hoặc khoá LAN đã đổi – cần đăng lại nếu muốn dự phòng):', ...p.missing.map(t => '- ' + t)] : []),
     ].join('\r\n')) });
     const a = document.createElement('a'), d = new Date();
