@@ -78,6 +78,9 @@ phát đồng loạt, phòng sát vách sang đợt 2, WebSocket nhận lệnh �
   $env:BASE='https://phat-bai-nghe.phat-bai-nghe-cloud.workers.dev'; $env:SUPER_TOKEN='<mã>'; $env:SLUG='kt1'; node test/smoke-remote.mjs
   ```
 
+Quyết định hiện tại (21/11/2026): giữ tài khoản Cloudflare này, gói Free, chưa dùng tên miền riêng.
+Bản sao MASTER_KEY và SUPER_TOKEN (file `.wrangler-account/bi-mat-moi-truong-thu.txt`) cất trong Google Drive của người quản lý – không đưa vào git.
+
 Gói Workers Free đủ để thử (giới hạn 10 ms CPU/yêu cầu có thể làm chậm đăng nhập, đăng bài lớn). Chạy thật nên dùng gói Paid ($5/tháng).
 
 ## Quản lý trường (siêu admin)
