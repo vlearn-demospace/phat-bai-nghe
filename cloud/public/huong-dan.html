@@ -46,6 +46,10 @@ kbd { font-family: inherit; font-size: 12px; font-weight: 700; padding: 1px 7px;
 .mini-card h3 { margin: 0 0 6px; }
 .mini-card p { margin: 0; font-size: 13px; }
 table.issues td:first-child { width: 38%; }
+.map.demo { min-width: 520px; max-width: 640px; }
+.map.demo td { height: 64px; }
+.map.demo .y small { display: block; font-weight: 500; color: rgb(var(--slate)); }
+.cell.clash { background: repeating-linear-gradient(135deg, rgb(var(--page)) 0 6px, rgb(var(--white)) 6px 12px); color: rgb(var(--slate)); }
 .foot { font-size: 12px; color: rgb(var(--slate)); text-align: center; }
 @media (max-width: 860px) {
   .wrap { grid-template-columns: minmax(0, 1fr); padding-top: 0; }
@@ -156,10 +160,45 @@ table.issues td:first-child { width: 38%; }
         <ol>
           <li>Tab <span class="ui">Bài nghe</span>, ở dòng bài cần thi bấm <span class="ui">Xếp lịch</span>.</li>
           <li>Chọn <span class="ui">Ngày thi</span> và <span class="ui">Giờ mở khoá</span> – đây là lúc máy phòng được phép mở bài.</li>
-          <li>Chọn một kỹ thuật viên ở hàng nút phía trên sơ đồ (mỗi người một màu), rồi bấm vào các ô phòng của người đó – hoặc giữ chuột kéo qua nhiều ô, bấm nhãn <span class="ui">TẦNG</span> để chọn cả tầng, nút <span class="ui">Chọn cả khu</span> để chọn cả khu. Bấm lại để bỏ. Ô đã chọn có dấu ✓ và tên người phụ trách; ô gạch chéo ghi <span class="chip">Trùng</span> là phòng đã dùng cho bài khác cùng giờ. Bên dưới sơ đồ có danh sách phòng của từng người để soát lại.</li>
+          <li>Chọn phòng thi và người phụ trách từng phòng trên sơ đồ – xem <a href="#chon-phong">Chọn phòng trên sơ đồ</a> ngay bên dưới.</li>
           <li><span class="ui">Lưu lịch và phân phòng</span>. Mỗi phòng nhận một mã 4 ký tự; xếp lại giờ hoặc thêm phòng thì mã cũ giữ nguyên.</li>
           <li><span class="ui">In phiếu mã phòng</span>: phiếu xếp theo từng kỹ thuật viên để phát tận tay.</li>
         </ol>
+
+        <h3 id="chon-phong">Chọn phòng trên sơ đồ</h3>
+        <p>Giống tô màu: chọn <b>một kỹ thuật viên</b> làm “bút”, rồi tô các phòng người đó phụ trách. Mỗi người một màu, nên nhìn sơ đồ là biết ai trông phòng nào.</p>
+        <div class="scroll"><table class="map demo" aria-label="Ví dụ sơ đồ khi chọn phòng"><tbody><tr>
+          <td class="y">TẦNG 1<small>chọn cả tầng</small></td>
+          <td><span class="cell sel k0"><b>P.101</b>11A1<i>Anh Minh</i></span></td>
+          <td><span class="cell sel k1"><b>P.102</b>11A2<i>Chị Hoa</i></span></td>
+          <td class="y">CẦU<br>THANG</td>
+          <td><span class="cell"><b>P.103</b>12A1</span></td>
+          <td><span class="cell clash"><b>P.104</b>12A2<i>Trùng: Nghe 12</i></span></td>
+        </tr></tbody></table></div>
+        <p class="small mute" style="margin-top:0">Ô màu có ✓: đã chọn, ghi tên người phụ trách · ô trắng: chưa chọn · ô gạch chéo: phòng đã dùng cho bài khác cùng giờ, không chọn được.</p>
+        <ol>
+          <li><b>Chọn người.</b> Bấm tên kỹ thuật viên ở hàng nút phía trên sơ đồ. Nút đang chọn có viền màu, và dòng <span class="ui">Đang phân phòng cho: …</span> nhắc lại tên. Chưa có tên trong danh sách thì gõ vào ô <span class="ui">Thêm kỹ thuật viên mới</span> › <span class="ui">Thêm</span> – người mới được chọn luôn.</li>
+          <li><b>Tô phòng</b> của người đó theo một trong các cách ở bảng dưới.</li>
+          <li><b>Đổi người</b> và tô tiếp. Bấm vào ô đang thuộc người khác thì ô đó chuyển sang người đang chọn.</li>
+          <li><b>Soát lại</b> danh sách ngay dưới sơ đồ: mỗi dòng là một người, kèm các phòng và số phòng. Dòng cuối báo tổng số phòng và số phòng chưa có kỹ thuật viên.</li>
+        </ol>
+        <div class="scroll"><table>
+          <thead><tr><th>Muốn</th><th>Làm thế này</th></tr></thead>
+          <tbody>
+            <tr><td>Chọn một phòng</td><td>Bấm vào ô phòng (điện thoại, máy tính bảng: chạm).</td></tr>
+            <tr><td>Chọn nhiều phòng liền nhau</td><td>Giữ chuột trái và kéo qua các ô. Chỉ có trên máy tính.</td></tr>
+            <tr><td>Chọn cả tầng</td><td>Bấm nhãn <span class="ui">TẦNG …</span> ở đầu hàng. Bấm lần nữa để bỏ cả tầng.</td></tr>
+            <tr><td>Chọn cả khu</td><td>Bấm <span class="ui">Chọn cả khu</span> cạnh tên khu. Khi cả khu đã chọn, nút đổi thành <span class="ui">Bỏ cả khu</span>.</td></tr>
+            <tr><td>Bỏ một phòng</td><td>Chọn đúng người đang phụ trách phòng đó, rồi bấm lại vào ô.</td></tr>
+            <tr><td>Làm lại từ đầu</td><td>Bấm <span class="ui">Bỏ chọn tất cả</span> dưới sơ đồ.</td></tr>
+          </tbody>
+        </table></div>
+        <ul>
+          <li>Chọn cả tầng, cả khu tự bỏ qua các phòng trùng giờ.</li>
+          <li>Chưa biết ai trông phòng? Chọn nút <span class="ui">Chưa phân KTV</span> (màu xám) rồi tô phòng; phân người sau bằng cách mở lại <span class="ui">Đổi lịch</span>. Phiếu của phòng chưa phân vẫn in được.</li>
+          <li>Phòng ghi <span class="chip">Trùng</span> tính theo khung giờ của cả hai bài (giờ mở khoá cộng thời lượng). Đổi ngày hoặc giờ thi thì sơ đồ tự cập nhật ngay.</li>
+          <li>Sơ đồ rộng hơn màn hình thì vuốt hoặc cuộn ngang trong khung sơ đồ.</li>
+        </ul>
         <div class="note warn"><b>Mã phòng chỉ dùng được từ 24 giờ trước giờ thi đến 3 giờ sau khi bài thi kết thúc.</b> Phát phiếu sớm hơn cũng được, nhưng kỹ thuật viên chỉ nhập mã được trong khoảng đó.</div>
 
         <h3>Shortcut toàn màn hình cho máy phòng thi</h3>
